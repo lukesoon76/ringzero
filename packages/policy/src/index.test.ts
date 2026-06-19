@@ -1,10 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { PACKAGE, PHASE, STANCE } from "./index.js";
+import { CAPABILITIES } from "./capabilities.js";
+import { PACKAGE, STANCE } from "./index.js";
 
-describe("@ring-zero/policy scaffold", () => {
-  it("declares its identity and Phase 0 stance", () => {
+describe("@ring-zero/policy", () => {
+  it("declares its identity and REAL stance", () => {
     expect(PACKAGE).toBe("@ring-zero/policy");
-    expect(PHASE).toBe(0);
     expect(STANCE).toBe("REAL");
+  });
+
+  it("defines the four capabilities C1–C4", () => {
+    expect(CAPABILITIES.map((c) => c.id)).toEqual(["C1", "C2", "C3", "C4"]);
   });
 });

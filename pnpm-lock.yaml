@@ -11,12 +11,21 @@ importers:
       '@eslint/js':
         specifier: ^9.12.0
         version: 9.39.4
+      '@ring-zero/kernel':
+        specifier: workspace:*
+        version: link:packages/kernel
+      '@ring-zero/policy':
+        specifier: workspace:*
+        version: link:packages/policy
       '@types/node':
         specifier: ^20.16.11
         version: 20.19.43
       eslint:
         specifier: ^9.12.0
         version: 9.39.4
+      fast-check:
+        specifier: ^3.22.0
+        version: 3.23.2
       tsx:
         specifier: ^4.19.1
         version: 4.22.4
@@ -43,7 +52,11 @@ importers:
 
   packages/pillars: {}
 
-  packages/policy: {}
+  packages/policy:
+    dependencies:
+      '@ring-zero/kernel':
+        specifier: workspace:*
+        version: link:../kernel
 
   packages/sdk: {}
 
@@ -866,6 +879,10 @@ packages:
     resolution: {integrity: sha512-knvyeauYhqjOYvQ66MznSMs83wmHrCycNEN6Ao+2AeYEfxUIkuiVxdEa1qlGEPK+We3n0THiDciYSsCcgW/DoA==}
     engines: {node: '>=12.0.0'}
 
+  fast-check@3.23.2:
+    resolution: {integrity: sha512-h5+1OzzfCC3Ef7VbtKdcv7zsstUQwUDlYpUTvjeUsJAssPgLn7QzbboPtL5ro04Mq0rPOsMzl7q5hIbRs2wD1A==}
+    engines: {node: '>=8.0.0'}
+
   fast-deep-equal@3.1.3:
     resolution: {integrity: sha512-f3qQ9oQy9j2AhBe/H9VC91wLmKBCCU/gDOnKNAYG5hswO7BLKj09Hc5HYNz9cGI++xlpDCIgDaitVs03ATR84Q==}
 
@@ -1090,6 +1107,9 @@ packages:
   punycode@2.3.1:
     resolution: {integrity: sha512-vYt7UD1U9Wg6138shLtLOvdAu+8DsC/ilFtEVHcH+wydcSpNE20AfSOduf6MkRFahL5FY7X1oU7nKVZFtfq8Fg==}
     engines: {node: '>=6'}
+
+  pure-rand@6.1.0:
+    resolution: {integrity: sha512-bVWawvoZoBYpp6yIoQtQXHZjmz35RSVHnUOTefl8Vcjr8snTPY1wnpSPMWekcFwbxI6gtmT7rSYPFvz71ldiOA==}
 
   rc@1.2.8:
     resolution: {integrity: sha512-y3bGgqKj3QBdxLbLkomlohkvsA8gdAiUQlSBJnBhfn+BPxg4bc62d8TcBW15wavDfgexCgccckhcZvywyQYPOw==}
@@ -2007,6 +2027,10 @@ snapshots:
 
   expect-type@1.3.0: {}
 
+  fast-check@3.23.2:
+    dependencies:
+      pure-rand: 6.1.0
+
   fast-deep-equal@3.1.3: {}
 
   fast-json-stable-stringify@2.1.0: {}
@@ -2198,6 +2222,8 @@ snapshots:
       once: 1.4.0
 
   punycode@2.3.1: {}
+
+  pure-rand@6.1.0: {}
 
   rc@1.2.8:
     dependencies:

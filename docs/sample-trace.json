@@ -1,0 +1,465 @@
+{
+  "policyId": "credit-memo",
+  "tier": 3,
+  "s0": "s0_start",
+  "steps": [
+    {
+      "index": 0,
+      "fromNode": "s0_start",
+      "toNode": "s1_extracted",
+      "action": {
+        "id": "C1.extract",
+        "kind": "capability",
+        "intent": "read"
+      },
+      "preAttrs": {
+        "Alignment": 0,
+        "Information": 0,
+        "Confidence": 0,
+        "Verified": 0,
+        "Length": 0
+      },
+      "postAttrs": {
+        "Alignment": 0.5,
+        "Information": 0.6,
+        "Confidence": 0,
+        "Verified": 0,
+        "Length": 1
+      },
+      "decision": "retrieve",
+      "guardEvaluations": [
+        {
+          "guard": "length-budget",
+          "fired": false,
+          "detail": "Length=0 vs Lmax=16",
+          "score": 0,
+          "threshold": 16,
+          "advisory": false
+        },
+        {
+          "guard": "alignment-retrieve",
+          "fired": true,
+          "detail": "Alignment=0 vs θ_A=0.8",
+          "score": 0,
+          "threshold": 0.8,
+          "advisory": false
+        }
+      ],
+      "constraintChecks": [
+        {
+          "constraint": "approval-before-write-or-dispatch",
+          "applicable": false,
+          "pass": true,
+          "detail": "intent=read is not write/dispatch"
+        },
+        {
+          "constraint": "no-write-after-sensitive-data",
+          "applicable": false,
+          "pass": true,
+          "detail": "sensitiveData=false, intent=read"
+        },
+        {
+          "constraint": "no-release-without-authenticated-signoff",
+          "applicable": false,
+          "pass": true,
+          "detail": "intent=read is not an external release"
+        }
+      ],
+      "outcome": "applied"
+    },
+    {
+      "index": 1,
+      "fromNode": "s1_extracted",
+      "toNode": "s2_retrieved",
+      "action": {
+        "id": "C2.retrieve",
+        "kind": "capability",
+        "intent": "retrieve"
+      },
+      "preAttrs": {
+        "Alignment": 0.5,
+        "Information": 0.6,
+        "Confidence": 0,
+        "Verified": 0,
+        "Length": 1
+      },
+      "postAttrs": {
+        "Alignment": 1,
+        "Information": 0.9,
+        "Confidence": 0,
+        "Verified": 0,
+        "Length": 2
+      },
+      "decision": "retrieve",
+      "guardEvaluations": [
+        {
+          "guard": "length-budget",
+          "fired": false,
+          "detail": "Length=1 vs Lmax=16",
+          "score": 1,
+          "threshold": 16,
+          "advisory": false
+        },
+        {
+          "guard": "alignment-retrieve",
+          "fired": true,
+          "detail": "Alignment=0.5 vs θ_A=0.8",
+          "score": 0.5,
+          "threshold": 0.8,
+          "advisory": false
+        }
+      ],
+      "transitionGuard": {
+        "name": "source-allowlist+recency",
+        "pass": true,
+        "detail": "allowlisted=true, recencyMonths=12 (max 18)",
+        "score": 12,
+        "threshold": 18
+      },
+      "constraintChecks": [
+        {
+          "constraint": "approval-before-write-or-dispatch",
+          "applicable": false,
+          "pass": true,
+          "detail": "intent=retrieve is not write/dispatch"
+        },
+        {
+          "constraint": "no-write-after-sensitive-data",
+          "applicable": false,
+          "pass": true,
+          "detail": "sensitiveData=false, intent=retrieve"
+        },
+        {
+          "constraint": "no-release-without-authenticated-signoff",
+          "applicable": false,
+          "pass": true,
+          "detail": "intent=retrieve is not an external release"
+        }
+      ],
+      "outcome": "applied"
+    },
+    {
+      "index": 2,
+      "fromNode": "s2_retrieved",
+      "toNode": "s2_retrieved",
+      "action": {
+        "id": "verify",
+        "kind": "control",
+        "intent": "compute"
+      },
+      "preAttrs": {
+        "Alignment": 1,
+        "Information": 0.9,
+        "Confidence": 0,
+        "Verified": 0,
+        "Length": 2
+      },
+      "postAttrs": {
+        "Alignment": 1,
+        "Information": 0.9,
+        "Confidence": 1,
+        "Verified": 1,
+        "Length": 3
+      },
+      "decision": "verify",
+      "guardEvaluations": [
+        {
+          "guard": "length-budget",
+          "fired": false,
+          "detail": "Length=2 vs Lmax=16",
+          "score": 2,
+          "threshold": 16,
+          "advisory": false
+        },
+        {
+          "guard": "alignment-retrieve",
+          "fired": false,
+          "detail": "Alignment=1 vs θ_A=0.8",
+          "score": 1,
+          "threshold": 0.8,
+          "advisory": false
+        },
+        {
+          "guard": "unverified-verify",
+          "fired": true,
+          "detail": "Verified=0",
+          "score": 0,
+          "threshold": 1,
+          "advisory": false
+        }
+      ],
+      "constraintChecks": [],
+      "verifyResult": {
+        "verified": 1,
+        "confidence": 1,
+        "timedOut": false,
+        "detail": "all 1 check(s) passed"
+      },
+      "outcome": "verified",
+      "note": "verification passed"
+    },
+    {
+      "index": 3,
+      "fromNode": "s2_retrieved",
+      "toNode": "s3_drafted",
+      "action": {
+        "id": "C4.draft",
+        "kind": "capability",
+        "intent": "compute"
+      },
+      "preAttrs": {
+        "Alignment": 1,
+        "Information": 0.9,
+        "Confidence": 1,
+        "Verified": 1,
+        "Length": 3
+      },
+      "postAttrs": {
+        "Alignment": 1,
+        "Information": 0.9,
+        "Confidence": 1,
+        "Verified": 1,
+        "Length": 4
+      },
+      "decision": "continue",
+      "guardEvaluations": [
+        {
+          "guard": "length-budget",
+          "fired": false,
+          "detail": "Length=3 vs Lmax=16",
+          "score": 3,
+          "threshold": 16,
+          "advisory": false
+        },
+        {
+          "guard": "alignment-retrieve",
+          "fired": false,
+          "detail": "Alignment=1 vs θ_A=0.8",
+          "score": 1,
+          "threshold": 0.8,
+          "advisory": false
+        },
+        {
+          "guard": "unverified-verify",
+          "fired": false,
+          "detail": "Verified=1",
+          "score": 1,
+          "threshold": 1,
+          "advisory": false
+        },
+        {
+          "guard": "low-confidence-escalate",
+          "fired": false,
+          "detail": "Confidence=1 vs θ_C=0.7",
+          "score": 1,
+          "threshold": 0.7,
+          "advisory": false
+        },
+        {
+          "guard": "verified-in-budget",
+          "fired": true,
+          "detail": "Verified=1 ∧ Length=3<Lmax=16",
+          "advisory": false
+        }
+      ],
+      "constraintChecks": [
+        {
+          "constraint": "approval-before-write-or-dispatch",
+          "applicable": false,
+          "pass": true,
+          "detail": "intent=compute is not write/dispatch"
+        },
+        {
+          "constraint": "no-write-after-sensitive-data",
+          "applicable": false,
+          "pass": true,
+          "detail": "sensitiveData=false, intent=compute"
+        },
+        {
+          "constraint": "no-release-without-authenticated-signoff",
+          "applicable": false,
+          "pass": true,
+          "detail": "intent=compute is not an external release"
+        }
+      ],
+      "outcome": "applied"
+    },
+    {
+      "index": 4,
+      "fromNode": "s3_drafted",
+      "toNode": "s4_approved",
+      "action": {
+        "id": "approve",
+        "kind": "control",
+        "intent": "control"
+      },
+      "preAttrs": {
+        "Alignment": 1,
+        "Information": 0.9,
+        "Confidence": 1,
+        "Verified": 1,
+        "Length": 4
+      },
+      "postAttrs": {
+        "Alignment": 1,
+        "Information": 0.9,
+        "Confidence": 1,
+        "Verified": 1,
+        "Length": 5
+      },
+      "decision": "continue",
+      "guardEvaluations": [
+        {
+          "guard": "length-budget",
+          "fired": false,
+          "detail": "Length=4 vs Lmax=16",
+          "score": 4,
+          "threshold": 16,
+          "advisory": false
+        },
+        {
+          "guard": "alignment-retrieve",
+          "fired": false,
+          "detail": "Alignment=1 vs θ_A=0.8",
+          "score": 1,
+          "threshold": 0.8,
+          "advisory": false
+        },
+        {
+          "guard": "unverified-verify",
+          "fired": false,
+          "detail": "Verified=1",
+          "score": 1,
+          "threshold": 1,
+          "advisory": false
+        },
+        {
+          "guard": "low-confidence-escalate",
+          "fired": false,
+          "detail": "Confidence=1 vs θ_C=0.7",
+          "score": 1,
+          "threshold": 0.7,
+          "advisory": false
+        },
+        {
+          "guard": "verified-in-budget",
+          "fired": true,
+          "detail": "Verified=1 ∧ Length=4<Lmax=16",
+          "advisory": false
+        }
+      ],
+      "constraintChecks": [
+        {
+          "constraint": "approval-before-write-or-dispatch",
+          "applicable": false,
+          "pass": true,
+          "detail": "intent=control is not write/dispatch"
+        },
+        {
+          "constraint": "no-write-after-sensitive-data",
+          "applicable": false,
+          "pass": true,
+          "detail": "sensitiveData=false, intent=control"
+        },
+        {
+          "constraint": "no-release-without-authenticated-signoff",
+          "applicable": false,
+          "pass": true,
+          "detail": "intent=control is not an external release"
+        }
+      ],
+      "outcome": "applied"
+    },
+    {
+      "index": 5,
+      "fromNode": "s4_approved",
+      "toNode": "s5_released",
+      "action": {
+        "id": "C4.release",
+        "kind": "capability",
+        "intent": "dispatch"
+      },
+      "preAttrs": {
+        "Alignment": 1,
+        "Information": 0.9,
+        "Confidence": 1,
+        "Verified": 1,
+        "Length": 5
+      },
+      "postAttrs": {
+        "Alignment": 1,
+        "Information": 0.9,
+        "Confidence": 1,
+        "Verified": 1,
+        "Length": 6
+      },
+      "decision": "continue",
+      "guardEvaluations": [
+        {
+          "guard": "length-budget",
+          "fired": false,
+          "detail": "Length=5 vs Lmax=16",
+          "score": 5,
+          "threshold": 16,
+          "advisory": false
+        },
+        {
+          "guard": "alignment-retrieve",
+          "fired": false,
+          "detail": "Alignment=1 vs θ_A=0.8",
+          "score": 1,
+          "threshold": 0.8,
+          "advisory": false
+        },
+        {
+          "guard": "unverified-verify",
+          "fired": false,
+          "detail": "Verified=1",
+          "score": 1,
+          "threshold": 1,
+          "advisory": false
+        },
+        {
+          "guard": "low-confidence-escalate",
+          "fired": false,
+          "detail": "Confidence=1 vs θ_C=0.7",
+          "score": 1,
+          "threshold": 0.7,
+          "advisory": false
+        },
+        {
+          "guard": "verified-in-budget",
+          "fired": true,
+          "detail": "Verified=1 ∧ Length=5<Lmax=16",
+          "advisory": false
+        }
+      ],
+      "constraintChecks": [
+        {
+          "constraint": "approval-before-write-or-dispatch",
+          "applicable": true,
+          "pass": true,
+          "detail": "authenticated approval event"
+        },
+        {
+          "constraint": "no-write-after-sensitive-data",
+          "applicable": false,
+          "pass": true,
+          "detail": "sensitiveData=false, intent=dispatch"
+        },
+        {
+          "constraint": "no-release-without-authenticated-signoff",
+          "applicable": true,
+          "pass": true,
+          "detail": "Verified=1 and authenticated sign-off present"
+        }
+      ],
+      "outcome": "applied"
+    }
+  ],
+  "terminal": {
+    "node": "s5_released",
+    "kind": "Complete",
+    "detail": "reached terminal node"
+  }
+}

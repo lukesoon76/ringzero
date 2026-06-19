@@ -16,14 +16,18 @@
     "lint": "eslint packages apps scripts",
     "verify:py": "uv run --directory packages/verify ruff check . && uv run --directory packages/verify mypy src && uv run --directory packages/verify pytest -q",
     "db:migrate": "tsx packages/telemetry/src/migrate.ts",
+    "trace:sample": "tsx scripts/sample-trace.ts",
     "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm verify:py",
     "demo": "tsx apps/demo/src/index.ts",
     "dev": "tsx scripts/dev.ts"
   },
   "devDependencies": {
     "@eslint/js": "^9.12.0",
+    "@ring-zero/kernel": "workspace:*",
+    "@ring-zero/policy": "workspace:*",
     "@types/node": "^20.16.11",
     "eslint": "^9.12.0",
+    "fast-check": "^3.22.0",
     "tsx": "^4.19.1",
     "turbo": "^2.2.3",
     "typescript": "^5.6.3",
