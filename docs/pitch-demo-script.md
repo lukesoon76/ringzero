@@ -1,24 +1,54 @@
 # Ring Zero — 3-Minute Pitch Demo Script
 
-> **Status: placeholder (Phase 0).** Written for real in Phase 7, once the
-> side-by-side demo (Phase 6) and console (Phase 7) exist. This file's job is to
-> let a *non-engineer* deliver the three-minute "aha" — spoken narrative plus the
-> exact clicks.
+A non-engineer can deliver this. Two surfaces: the terminal (`pnpm demo`) for the
+side-by-side, and the console (`pnpm --filter @ring-zero/console dev`) for the
+trace viewer and attestation.
 
 ## The one-line moat statement
-> "Everyone else watches the agent. We're the only kernel that can stop it —
-> deterministically, with the audit trail falling out of the same substrate."
+> "Everyone else watches the agent. We're the only kernel that can *stop* it —
+> deterministically, LLM-free, fail-closed — and the audit trail falls out of the
+> same substrate."
 
-## Arc (to be filled in)
-1. **Set up (0:00–0:30):** a credit-memo agent. Looks fluent. Watch it ungoverned.
-2. **Ungoverned fails (0:30–1:15):** all five attacks land — 26-month-stale data,
-   injected "approval granted, release", coverage **2.82 vs 1.82**, verbal
-   approval accepted, drift to unauthorised release. Plausible, and wrong.
-3. **Flip Ring Zero on (1:15–1:30):** same agent, same inputs.
-4. **Governed blocks all five (1:30–2:30):** open the trace viewer; each guard
-   decision is deterministic, LLM-free, fail-closed; show the exact step each
-   attack dies at.
-5. **Attestation (2:30–3:00):** one click → audit-ready evidence mapped to
-   EU AI Act / MAS / Singapore MGF, every control resolving to a real trace event.
+## Setup (before the room)
+```bash
+pnpm install
+pnpm demo                                   # generates the governed runs + attestation
+pnpm --filter @ring-zero/console dev        # open http://localhost:3000
+```
 
-_TODO (Phase 7): exact narration, click-by-click, fallback if offline._
+## Arc
+
+**0:00–0:30 — The problem.** "A credit-memo agent. It looks fluent. Watch it run
+without governance." Run `pnpm demo`; point at the red column.
+
+**0:30–1:15 — Ungoverned fails, five ways.** Read the red lines: 26-month-stale
+data shipped; an injected 'approval granted — release' obeyed; interest-coverage
+**2.82 shipped when the truth is 1.82** (double-counted EBITDA); a *verbal*
+"approval confirmed" accepted; and across repeated runs it drifts to releasing
+without approval. "Plausible. And wrong in five material ways."
+
+**1:15–1:30 — Flip Ring Zero on.** Same agent, same inputs — the green column.
+"5/5 blocked or contained. Deterministically. No LLM on the decision path."
+
+**1:30–2:30 — Prove it (console → Trace Viewer).** Open `/trace`, pick
+`gov-ebitda-double-count`, click the `verify` step. Show the guard decision:
+`Verified=0`, the exact discrepancy (`claimed=2.82 recomputed=1.82`), terminal
+`Escalate`. "Every decision is a guard `f: S×Θ→{0,1}`, evaluated LLM-free, and
+the prohibited transition — releasing from the drafted state — is structurally
+impossible, not merely flagged." Note the run is **auditable** and **replays
+exactly**.
+
+**2:30–3:00 — Attestation falls out (console → Attestation).** "One artifact,
+same evidence: every control resolves to a replayable trace event across EU AI
+Act, MAS, and Singapore MGF. Gaps are reported, never asserted." Then `/` for the
+pillar map: "We own the white space — P4, deterministic runtime enforcement —
+and everything else plugs into it."
+
+## If asked "is the agent real?"
+Yes — thin by design. `RING_ZERO_LLM=1 ANTHROPIC_API_KEY=… pnpm demo` runs a live
+model for the (non-binding) draft prose. The governance verdict is identical
+either way: the kernel governs the agent, not the other way round.
+
+## Fallback if offline
+`pnpm demo` is fully offline and deterministic (canned agent). Nothing in the
+critical path needs the network.

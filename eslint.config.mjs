@@ -45,6 +45,8 @@ export default tseslint.config(
       "**/coverage/**",
       "**/*.config.*",
       "**/*.d.ts",
+      // The Next.js console is linted by `next lint` (its own React/Next ruleset).
+      "apps/console/**",
     ],
   },
   js.configs.recommended,

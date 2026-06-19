@@ -14,17 +14,26 @@ and [`ARCHITECTURE.md`](./ARCHITECTURE.md) for the canonical objects and guard l
 
 ## Status
 
-**Phase 0 — scaffold.** Monorepo, toolchain, strict TS / ruff / mypy / Vitest /
-pytest, OTel collector config, SQLite migration runner, and `pnpm demo` / `pnpm
-dev` stubs. No governance logic yet — that lands in Phase 1 (the kernel).
+**All phases complete (0–7).** Deterministic kernel (P4) + logical verifiers (P3)
+built deep; mediation/identity/approval, telemetry+replay, registry/tiering/
+attestation, the side-by-side demo, and the Next.js console all working. `pnpm
+demo` blocks 5/5 attacks deterministically; the governed run replays exactly and
+yields a 5/5 attestation. 78 TS tests + 10 Python tests green.
 
 ## Quick start
 
 ```bash
-pnpm install      # install workspace deps
-pnpm check        # lint + typecheck + test (TS) + ruff/mypy/pytest (Python)
-pnpm db:migrate   # apply SQLite migrations
-pnpm demo         # the credit-memo side-by-side (Phase 6+)
+pnpm install                              # install workspace deps
+pnpm check                                # lint + typecheck + test (TS) + ruff/mypy/pytest (Python)
+pnpm demo                                 # the credit-memo side-by-side (ungoverned vs governed)
+pnpm --filter @ring-zero/console dev      # the investor console → http://localhost:3000
+pnpm trace:sample                         # print governed trajectories + write docs/sample-trace.json
+```
+
+Live agent (non-binding draft prose; the governance verdict stays deterministic):
+
+```bash
+RING_ZERO_LLM=1 ANTHROPIC_API_KEY=sk-… pnpm demo
 ```
 
 ## Toolchain
