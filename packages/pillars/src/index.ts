@@ -1,11 +1,13 @@
 /**
- * @ring-zero/pillars — P1/P2/P6: agent registry + agent card, 5-dimension risk tiering wired to enforcement intensity, attestation export.
- *
- * Phase 0: stub only. See ../../ARCHITECTURE.md and ../../CLAUDE.md.
+ * @ring-zero/pillars — the thin-but-real pillar scaffold around the kernel:
+ * agent registry + agent card (P1), 5-dimension risk tiering wired to enforcement
+ * intensity (P2), and attestation export from real run evidence (P6).
  */
 
 export const PACKAGE = "@ring-zero/pillars";
-export const PHASE = 0;
-
-/** Build stance for this pillar, surfaced in the console pillar map. */
 export const STANCE = "THIN" as const;
+
+export * from "./tiering.js";
+export * from "./registry.js";
+export * from "./attestation.js";
+export * from "./render.js";
