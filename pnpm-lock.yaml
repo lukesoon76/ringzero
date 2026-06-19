@@ -81,7 +81,11 @@ importers:
         specifier: ^7.6.11
         version: 7.6.13
 
-  packages/verify: {}
+  packages/verify:
+    dependencies:
+      '@ring-zero/kernel':
+        specifier: workspace:*
+        version: link:../kernel
 
 packages:
 

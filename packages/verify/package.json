@@ -2,8 +2,19 @@
   "name": "@ring-zero/verify",
   "version": "0.0.0",
   "private": true,
-  "description": "Python logical-verification subsystem (uv-managed). Run via `pnpm verify:py`.",
+  "type": "module",
+  "description": "Logical-verification subsystem: Python verifiers (uv) + TS RPC bridge.",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": "./ts/index.ts"
+  },
   "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
     "check": "uv run ruff check . && uv run mypy src && uv run pytest"
+  },
+  "dependencies": {
+    "@ring-zero/kernel": "workspace:*"
   }
 }
