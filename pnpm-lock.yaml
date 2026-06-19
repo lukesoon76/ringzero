@@ -44,7 +44,26 @@ importers:
 
   apps/console: {}
 
-  apps/demo: {}
+  apps/demo:
+    dependencies:
+      '@ring-zero/kernel':
+        specifier: workspace:*
+        version: link:../../packages/kernel
+      '@ring-zero/mediation':
+        specifier: workspace:*
+        version: link:../../packages/mediation
+      '@ring-zero/pillars':
+        specifier: workspace:*
+        version: link:../../packages/pillars
+      '@ring-zero/policy':
+        specifier: workspace:*
+        version: link:../../packages/policy
+      '@ring-zero/sdk':
+        specifier: workspace:*
+        version: link:../../packages/sdk
+      '@ring-zero/telemetry':
+        specifier: workspace:*
+        version: link:../../packages/telemetry
 
   packages/kernel: {}
 
