@@ -1,0 +1,34 @@
+[project]
+name = "ringzero-verify"
+version = "0.0.0"
+description = "Ring Zero deterministic logical verifiers (Pillars P3/P4)."
+requires-python = ">=3.12"
+dependencies = []
+
+[dependency-groups]
+dev = [
+  "ruff>=0.6.0",
+  "mypy>=1.11.0",
+  "pytest>=8.3.0",
+]
+
+# Virtual project: uv manages a venv with dev tools but does not build/install
+# the package itself. Source is made importable to pytest via pythonpath below.
+[tool.uv]
+package = false
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+addopts = "-q"

@@ -1,0 +1,9 @@
+{
+  "name": "@ring-zero/console",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node -e \"console.log('@ring-zero/console — Next.js control plane scaffolds in Phase 7.')\""
+  }
+}

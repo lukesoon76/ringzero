@@ -1,0 +1,38 @@
+# OpenTelemetry Collector config for the Ring Zero local demo.
+# Zero-cloud: receives OTLP from the kernel/telemetry SDK and writes spans to a
+# local JSONL file under ./.telemetry. Phase 4 wires governance-semantic spans
+# (guard evaluations, authz decisions, approval events, containment actions)
+# through here and into SQLite for full run replay.
+#
+# Run locally with the contrib collector:
+#   otelcol-contrib --config ./otel-collector-config.yaml
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 127.0.0.1:4317
+      http:
+        endpoint: 127.0.0.1:4318
+
+processors:
+  batch:
+    timeout: 1s
+
+exporters:
+  # Human-readable during the demo.
+  debug:
+    verbosity: detailed
+  # Durable local sink — one line per span, picked up by the telemetry store.
+  file:
+    path: ./.telemetry/otel-spans.jsonl
+
+service:
+  telemetry:
+    logs:
+      level: warn
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [debug, file]

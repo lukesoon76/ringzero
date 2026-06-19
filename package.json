@@ -1,0 +1,33 @@
+{
+  "name": "ring-zero",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Ring Zero — deterministic execution-governance kernel for AI agents (seed prototype).",
+  "type": "module",
+  "packageManager": "pnpm@9.12.3",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "turbo run build",
+    "typecheck": "turbo run typecheck",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint packages apps scripts",
+    "verify:py": "uv run --directory packages/verify ruff check . && uv run --directory packages/verify mypy src && uv run --directory packages/verify pytest -q",
+    "db:migrate": "tsx packages/telemetry/src/migrate.ts",
+    "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm verify:py",
+    "demo": "tsx apps/demo/src/index.ts",
+    "dev": "tsx scripts/dev.ts"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.12.0",
+    "@types/node": "^20.16.11",
+    "eslint": "^9.12.0",
+    "tsx": "^4.19.1",
+    "turbo": "^2.2.3",
+    "typescript": "^5.6.3",
+    "typescript-eslint": "^8.8.1",
+    "vitest": "^2.1.2"
+  }
+}

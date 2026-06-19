@@ -1,0 +1,58 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# DEFAULT-DENY .gitignore
+# This repository lives directly inside the user's HOME directory.
+# To make personal files (~/.ssh, ~/.claude.json, Documents, Library, …)
+# structurally untrackable, we ignore EVERYTHING at the repo root by default
+# and then re-include ONLY the Ring Zero project's own paths.
+# A stray `git add -A` cannot pick up anything outside the allowlist below.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# 1. Deny everything at the repo root.
+/*
+
+# 2. Re-include ONLY Ring Zero project paths.
+!/.gitignore
+!/.npmrc
+!/.github/
+!/.nvmrc
+!/.python-version
+!/README.md
+!/CLAUDE.md
+!/ARCHITECTURE.md
+!/package.json
+!/pnpm-workspace.yaml
+!/pnpm-lock.yaml
+!/turbo.json
+!/tsconfig.base.json
+!/eslint.config.mjs
+!/vitest.config.ts
+!/otel-collector-config.yaml
+!/packages/
+!/apps/
+!/docs/
+!/scripts/
+
+# 3. Nested artefacts to ignore inside re-included project dirs (match at any depth).
+node_modules/
+dist/
+.next/
+.turbo/
+.venv/
+__pycache__/
+*.pyc
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+coverage/
+*.tsbuildinfo
+
+# 4. Local runtime data / telemetry / databases (never commit these).
+.telemetry/
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+.env
+.env.*
+!.env.example
+.DS_Store
