@@ -73,10 +73,16 @@ importers:
 
   packages/telemetry:
     dependencies:
+      '@ring-zero/kernel':
+        specifier: workspace:*
+        version: link:../kernel
       better-sqlite3:
         specifier: ^11.3.0
         version: 11.10.0
     devDependencies:
+      '@ring-zero/policy':
+        specifier: workspace:*
+        version: link:../policy
       '@types/better-sqlite3':
         specifier: ^7.6.11
         version: 7.6.13

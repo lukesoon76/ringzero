@@ -14,7 +14,7 @@ import Database from "better-sqlite3";
 import { createHash } from "node:crypto";
 import { mkdirSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { DEFAULT_DB_PATH, MIGRATIONS_DIR } from "./index.js";
+import { DEFAULT_DB_PATH, MIGRATIONS_DIR } from "./paths.js";
 
 export interface MigrationResult {
   applied: string[];

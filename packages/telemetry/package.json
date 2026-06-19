@@ -14,9 +14,11 @@
     "migrate": "tsx src/migrate.ts"
   },
   "dependencies": {
+    "@ring-zero/kernel": "workspace:*",
     "better-sqlite3": "^11.3.0"
   },
   "devDependencies": {
+    "@ring-zero/policy": "workspace:*",
     "@types/better-sqlite3": "^7.6.11"
   }
 }
