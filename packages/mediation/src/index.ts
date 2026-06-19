@@ -1,11 +1,14 @@
 /**
- * @ring-zero/mediation — P4/P7/P8: complete-mediation tool gateway, default-deny least privilege, authenticated approval events, secrets-broker stub.
- *
- * Phase 0: stub only. See ../../ARCHITECTURE.md and ../../CLAUDE.md.
+ * @ring-zero/mediation — complete-mediation tool gateway (P4), agent identity +
+ * default-deny least privilege (P7), authenticated approval events (P8), and a
+ * secrets-broker stub. See ../../ARCHITECTURE.md and ../../CLAUDE.md.
  */
 
 export const PACKAGE = "@ring-zero/mediation";
-export const PHASE = 0;
-
-/** Build stance for this pillar, surfaced in the console pillar map. */
 export const STANCE = "REAL" as const;
+
+export * from "./identity.js";
+export * from "./secrets.js";
+export * from "./events.js";
+export * from "./approval-service.js";
+export * from "./gateway.js";

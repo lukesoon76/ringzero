@@ -48,7 +48,11 @@ importers:
 
   packages/kernel: {}
 
-  packages/mediation: {}
+  packages/mediation:
+    dependencies:
+      '@ring-zero/kernel':
+        specifier: workspace:*
+        version: link:../kernel
 
   packages/pillars: {}
 
@@ -58,7 +62,14 @@ importers:
         specifier: workspace:*
         version: link:../kernel
 
-  packages/sdk: {}
+  packages/sdk:
+    dependencies:
+      '@ring-zero/kernel':
+        specifier: workspace:*
+        version: link:../kernel
+      '@ring-zero/mediation':
+        specifier: workspace:*
+        version: link:../mediation
 
   packages/telemetry:
     dependencies:

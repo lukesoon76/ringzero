@@ -1,11 +1,56 @@
 /**
- * @ring-zero/sdk — Client used by the demo agent to route ALL tool intents through the mediation gateway (no side-channel).
- *
- * Phase 0: stub only. See ../../ARCHITECTURE.md and ../../CLAUDE.md.
+ * @ring-zero/sdk — the ONLY way the demo agent touches tools. Every intent is
+ * routed through the mediation gateway; the agent holds no direct tool handles,
+ * so there is no side-channel (complete mediation). The client owns the current
+ * governed state and advances it only when the gateway permits.
  */
 
-export const PACKAGE = "@ring-zero/sdk";
-export const PHASE = 0;
+import type { GovernedState, Theta } from "@ring-zero/kernel";
+import type { Gateway, MediationDecision, ToolIntent } from "@ring-zero/mediation";
 
-/** Build stance for this pillar, surfaced in the console pillar map. */
+export const PACKAGE = "@ring-zero/sdk";
 export const STANCE = "THIN" as const;
+
+export interface ToolInvocation {
+  readonly capabilityId: string;
+  readonly operation: string;
+  readonly intent: ToolIntent;
+  readonly requiredScopes: readonly string[];
+  readonly actionId: string;
+}
+
+export interface RouteResult {
+  readonly decision: MediationDecision;
+  readonly applied: boolean;
+  readonly state: GovernedState;
+}
+
+export class RingZeroClient {
+  private state: GovernedState;
+
+  constructor(
+    private readonly agentId: string,
+    private readonly gateway: Gateway,
+    private readonly theta: Theta,
+    initialState: GovernedState,
+  ) {
+    this.state = initialState;
+  }
+
+  current(): GovernedState {
+    return this.state;
+  }
+
+  /** Route a tool intent through the gateway. Advances state iff permitted. */
+  route(inv: ToolInvocation): RouteResult {
+    const { decision, next } = this.gateway.execute(this.state, this.theta, {
+      agentId: this.agentId,
+      ...inv,
+    });
+    if (decision.permitted && next) {
+      this.state = next;
+      return { decision, applied: true, state: this.state };
+    }
+    return { decision, applied: false, state: this.state };
+  }
+}
