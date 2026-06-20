@@ -28,6 +28,7 @@ import { runUngovernedAttack } from "./ungoverned.js";
 const DB = resolve(process.cwd(), ".telemetry", "demo.db");
 const OTLP = resolve(process.cwd(), ".telemetry", "demo-otel.jsonl");
 const ATTESTATION = resolve(process.cwd(), ".telemetry", "attestation.html");
+const ATTESTATION_JSON = resolve(process.cwd(), ".telemetry", "attestation.json");
 
 const bold = (s: string) => `\x1b[1m${s}\x1b[0m`;
 const red = (s: string) => `\x1b[31m${s}\x1b[0m`;
@@ -109,6 +110,7 @@ async function main(): Promise<void> {
   // Attestation from real run evidence.
   const attestation = generateAttestation(reconstructed, "credit-memo (U3)");
   writeFileSync(ATTESTATION, renderAttestationHtml(attestation, { traceViewerBase: "/trace" }));
+  writeFileSync(ATTESTATION_JSON, JSON.stringify(attestation, null, 2));
 
   console.log(dim("\n  ─────────────────────────────────────────────────────────────────────────────────────"));
   console.log(

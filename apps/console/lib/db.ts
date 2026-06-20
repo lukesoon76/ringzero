@@ -5,10 +5,15 @@
  */
 
 import Database from "better-sqlite3";
+import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 const DB_PATH =
   process.env.RING_ZERO_DB ?? resolve(process.cwd(), "..", "..", ".telemetry", "demo.db");
+
+const ATTESTATION_JSON =
+  process.env.RING_ZERO_ATTESTATION_JSON ??
+  resolve(process.cwd(), "..", "..", ".telemetry", "attestation.json");
 
 function open(): Database.Database | null {
   try {
@@ -66,6 +71,56 @@ export interface AgentCard {
   authorityScopes: string[];
   capabilities: string[];
   traceLinks: { runId: string; governed: boolean; terminalKind: string; auditable: boolean }[];
+}
+
+export interface AttestationControl {
+  controlId: string;
+  standard: string;
+  title: string;
+  satisfied: boolean;
+  evidence?: { runId: string; stepIndex: number; detail: string };
+  gap?: string;
+}
+
+export interface AttestationDoc {
+  useCase: string;
+  runId: string;
+  tier: number;
+  terminal: { kind: string; detail: string };
+  controls: AttestationControl[];
+  gaps: string[];
+}
+
+export interface FrameworkCoverage {
+  framework: string;
+  satisfied: number;
+  total: number;
+}
+
+export function readAttestation(): AttestationDoc | null {
+  try {
+    return JSON.parse(readFileSync(ATTESTATION_JSON, "utf8")) as AttestationDoc;
+  } catch {
+    return null;
+  }
+}
+
+/** Group attestation controls into the three headline frameworks for coverage bars. */
+export function frameworkCoverage(att: AttestationDoc | null): FrameworkCoverage[] {
+  const frameworks = [
+    { framework: "EU AI Act", match: "EU AI Act" },
+    { framework: "MAS AI risk", match: "MAS" },
+    { framework: "Singapore MGF", match: "Singapore MGF" },
+  ];
+  if (!att) return frameworks.map((f) => ({ framework: f.framework, satisfied: 0, total: 0 }));
+  return frameworks.map((f) => {
+    const controls = att.controls.filter((c) => c.standard.includes(f.match));
+    return {
+      framework: f.framework,
+      satisfied: controls.filter((c) => c.satisfied).length,
+      total: controls.length,
+    };
+  });
 }
 
 export function dbAvailable(): boolean {

@@ -5,15 +5,19 @@ export default {
   theme: {
     extend: {
       colors: {
-        ink: "#0b0f14",
-        panel: "#121826",
-        edge: "#1f2a3a",
-        muted: "#7d8aa0",
-        fg: "#d7e0ea",
-        ok: "#3ad29f",
-        bad: "#ff6b6b",
-        warn: "#ff9d6b",
-        link: "#5aa9ff",
+        ink: "#0a0e16",
+        sidebar: "#0e1320",
+        panel: "#141b2b",
+        panel2: "#1a2336",
+        edge: "#243049",
+        muted: "#8794ad",
+        fg: "#e4eaf3",
+        ok: "#34d399",
+        bad: "#f87171",
+        warn: "#fbbf24",
+        link: "#8b7cf6",
+        brand: "#8b7cf6",
+        brandDim: "#6d5ae6",
       },
       fontFamily: {
         mono: ["ui-monospace", "SFMono-Regular", "Menlo", "monospace"],

@@ -1,69 +1,132 @@
-import { Panel, StanceBadge } from "../components/ui";
-import { PILLARS, STANDARDS } from "../lib/pillars";
+import Link from "next/link";
+import { EmptyState, TerminalBadge } from "../components/ui";
+import {
+  frameworkCoverage,
+  listAgents,
+  listRuns,
+  readAttestation,
+  type FrameworkCoverage,
+} from "../lib/db";
 
 export const dynamic = "force-dynamic";
 
-export default function OverviewPage() {
+function Metric({ label, value, sub, tone }: { label: string; value: string; sub?: string; tone?: "ok" | "warn" }) {
+  const color = tone === "ok" ? "text-ok" : tone === "warn" ? "text-warn" : "text-fg";
+  return (
+    <div className="rounded-lg border border-edge bg-panel p-4">
+      <div className="text-[11px] uppercase tracking-wider text-muted">{label}</div>
+      <div className={`mt-1 text-2xl font-bold ${color}`}>{value}</div>
+      {sub ? <div className="text-[11px] text-muted">{sub}</div> : null}
+    </div>
+  );
+}
+
+function CoverageBar({ c }: { c: FrameworkCoverage }) {
+  const pct = c.total > 0 ? Math.round((c.satisfied / c.total) * 100) : 0;
+  return (
+    <div>
+      <div className="mb-1 flex items-center justify-between text-[12px]">
+        <span className="text-fg">{c.framework}</span>
+        <span className="text-muted">
+          {c.satisfied}/{c.total} controls · {pct}%
+        </span>
+      </div>
+      <div className="h-2 w-full overflow-hidden rounded bg-edge">
+        <div className="h-full rounded bg-brand" style={{ width: `${pct}%` }} />
+      </div>
+    </div>
+  );
+}
+
+export default function DashboardPage() {
+  const runs = listRuns();
+  if (runs.length === 0) return <EmptyState />;
+
+  const agents = listAgents();
+  const att = readAttestation();
+  const coverage = frameworkCoverage(att);
+  const auditable = runs.filter((r) => r.auditable).length;
+  const contained = runs.filter((r) => r.terminalKind !== "Complete").length;
+  const satisfied = att ? att.controls.filter((c) => c.satisfied).length : 0;
+  const totalControls = att ? att.controls.length : 0;
+
   return (
     <div className="space-y-6">
-      <header>
-        <h1 className="text-lg font-bold text-fg">Ring Zero — Governance Pillar Map</h1>
-        <p className="mt-1 max-w-3xl text-muted">
-          Every AI-governance vendor today <em>observes</em> agents; almost none can <em>stop</em> one. Ring Zero is
-          the deterministic enforcement kernel that makes governance binding at runtime — and turns the same evidence
-          into audit-ready compliance.
+      <div>
+        <h1 className="text-lg font-bold text-fg">Governance dashboard</h1>
+        <p className="text-[13px] text-muted">
+          Deterministic runtime enforcement over agent execution — every decision binding, fail-closed, and replayable.
         </p>
-      </header>
+      </div>
 
-      <Panel title="The board — 8 pillars, 1 owned deep (P4), 1 owned narrow (P3), 6 thin-but-real">
-        <table className="w-full border-collapse text-left">
-          <thead>
-            <tr className="text-[11px] uppercase tracking-wider text-muted">
-              <th className="py-2 pr-3">#</th>
-              <th className="py-2 pr-3">Pillar</th>
-              <th className="py-2 pr-3">Build</th>
-              <th className="py-2 pr-3">Position</th>
-              <th className="py-2 pr-3">Function</th>
-              <th className="py-2">Incumbents</th>
-            </tr>
-          </thead>
-          <tbody>
-            {PILLARS.map((p) => {
-              const wedge = p.id === "P4";
-              return (
-                <tr key={p.id} className={`border-t border-edge ${wedge ? "bg-ok/5" : ""}`}>
-                  <td className="py-2 pr-3 text-muted">{p.id}</td>
-                  <td className={`py-2 pr-3 ${wedge ? "font-semibold text-fg" : "text-fg"}`}>{p.name}</td>
-                  <td className="py-2 pr-3"><StanceBadge stance={p.stance} /></td>
-                  <td className={`py-2 pr-3 ${wedge ? "text-ok" : "text-muted"}`}>{p.owns}</td>
-                  <td className="py-2 pr-3 text-muted">{p.fn}</td>
-                  <td className="py-2 text-muted">{p.incumbents}</td>
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+        <Metric label="Agents governed" value={`${agents.length}`} sub="bound to a supervising user" />
+        <Metric label="Governed runs" value={`${runs.length}`} sub={`${contained} contained`} />
+        <Metric label="Auditable" value={`${auditable}/${runs.length}`} sub="replayable from telemetry" tone="ok" />
+        <Metric
+          label="Controls satisfied"
+          value={totalControls ? `${satisfied}/${totalControls}` : "—"}
+          sub="from real run evidence"
+          tone="ok"
+        />
+      </div>
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1.3fr_1fr]">
+        <section className="rounded-lg border border-edge bg-panel p-4">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-xs font-semibold uppercase tracking-wider text-muted">Governance activity</h2>
+            <Link href="/trace" className="text-[12px] text-brand hover:underline">
+              open trace viewer →
+            </Link>
+          </div>
+          <table className="w-full text-left text-[13px]">
+            <thead>
+              <tr className="text-[10px] uppercase tracking-wider text-muted">
+                <th className="py-2 pr-3">Run</th>
+                <th className="py-2 pr-3">Tier</th>
+                <th className="py-2 pr-3">Outcome</th>
+                <th className="py-2">Audit</th>
+              </tr>
+            </thead>
+            <tbody>
+              {runs.map((r) => (
+                <tr key={r.runId} className="border-t border-edge">
+                  <td className="py-2 pr-3">
+                    <Link href={`/trace?run=${encodeURIComponent(r.runId)}`} className="text-brand hover:underline">
+                      {r.runId}
+                    </Link>
+                  </td>
+                  <td className="py-2 pr-3 text-muted">{r.tier}</td>
+                  <td className="py-2 pr-3">
+                    <TerminalBadge kind={r.terminalKind} />
+                  </td>
+                  <td className="py-2 text-[12px]">
+                    {r.auditable ? <span className="text-ok">auditable</span> : <span className="text-bad">un-auditable</span>}
+                  </td>
                 </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </Panel>
+              ))}
+            </tbody>
+          </table>
+        </section>
 
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-        <Panel title="Why we win — enter from the middle">
-          <p className="text-muted">
-            Data-governance vendors (Databricks, Dataiku) reach <em>up</em> from the data layer; GRC vendors (Credo)
-            push <em>down</em> from policy. Ring Zero enters from the <span className="text-fg">execution layer</span>{" "}
-            both sides assume but neither enforces deterministically — a labelled transition system where prohibited
-            transitions are structurally impossible, guards are LLM-free and fail-closed, and the audit trail falls out
-            of the same substrate.
-          </p>
-        </Panel>
-        <Panel title="Standards in scope">
-          <div className="flex flex-wrap gap-2">
-            {STANDARDS.map((s) => (
-              <span key={s} className="rounded border border-edge px-2 py-1 text-xs text-muted">
-                {s}
-              </span>
+        <section className="rounded-lg border border-edge bg-panel p-4">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-xs font-semibold uppercase tracking-wider text-muted">Framework coverage</h2>
+            <Link href="/attestation" className="text-[12px] text-brand hover:underline">
+              report →
+            </Link>
+          </div>
+          <div className="space-y-3">
+            {coverage.map((c) => (
+              <CoverageBar key={c.framework} c={c} />
             ))}
           </div>
-        </Panel>
+          {att && att.gaps.length === 0 ? (
+            <p className="mt-4 text-[12px] text-ok">No open gaps — every mapped control resolves to a real trace event.</p>
+          ) : (
+            <p className="mt-4 text-[12px] text-warn">{att ? `${att.gaps.length} gap(s) reported` : "Run the demo to populate."}</p>
+          )}
+        </section>
       </div>
     </div>
   );
