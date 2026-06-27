@@ -120,7 +120,10 @@ async function main(): Promise<void> {
     `  ${bold("Governed release run:")} replays ${replays ? green("exactly") : red("MISMATCH")} · audit ${audit.auditable ? green("auditable") : red("UN-AUDITABLE")}`,
   );
   console.log(
-    `  ${bold("Attestation:")} ${attestation.controls.filter((c) => c.satisfied).length}/${attestation.controls.length} controls satisfied across EU AI Act / MAS / Singapore MGF`,
+    `  ${bold("Attestation:")} ${attestation.coveragePct}% coverage — ` +
+      `${attestation.controls.filter((c) => c.satisfied).length}/${attestation.controls.length} controls across ` +
+      `EU AI Act / MAS / Singapore MGF / NIST AI RMF / ISO 42001` +
+      (attestation.gaps.length ? dim(` · top gap: ${attestation.gaps[0]}`) : ""),
   );
   console.log(dim(`\n  Artifacts:  ${DB}\n              ${OTLP}\n              ${ATTESTATION}`));
   console.log(dim("  Console:    pnpm --filter @ring-zero/console dev   (Pillar map · Trace viewer · Attestation)\n"));

@@ -20,8 +20,10 @@ export default function AttestationPage() {
       <header>
         <h1 className="text-lg font-bold text-fg">Attestation Export (P6)</h1>
         <p className="text-muted">
-          Generated from the same run evidence as enforcement. Every satisfied control resolves to a replayable trace
-          event; gaps are reported, never asserted satisfied. Print-to-PDF for the auditor artifact.
+          Generated from the same run evidence as enforcement, across EU AI Act / MAS / Singapore MGF / NIST AI RMF /
+          ISO 42001. A live coverage score and a severity-ranked gap list fall out of the run; every satisfied control
+          resolves to a replayable trace event; gaps are reported, never asserted satisfied. Print-to-PDF for the
+          auditor artifact.
         </p>
       </header>
       {html ? (

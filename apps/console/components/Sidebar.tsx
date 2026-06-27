@@ -34,10 +34,18 @@ const ICONS: Record<string, ReactNode> = {
       <path d="M8 16v-4M12 16V8M16 16v-6" />
     </>
   ),
+  flask: (
+    <>
+      <path d="M9 3h6" />
+      <path d="M10 3v6l-5 9a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V3" />
+      <path d="M7 16h10" />
+    </>
+  ),
 };
 
 const NAV: Array<{ href: string; label: string; icon: keyof typeof ICONS }> = [
   { href: "/", label: "Dashboard", icon: "grid" },
+  { href: "/workbench", label: "Workbench", icon: "flask" },
   { href: "/registry", label: "Inventory", icon: "box" },
   { href: "/trace", label: "Activity", icon: "pulse" },
   { href: "/coverage", label: "Frameworks", icon: "shield" },

@@ -44,6 +44,12 @@ importers:
 
   apps/console:
     dependencies:
+      '@ring-zero/kernel':
+        specifier: workspace:*
+        version: link:../../packages/kernel
+      '@ring-zero/policy':
+        specifier: workspace:*
+        version: link:../../packages/policy
       better-sqlite3:
         specifier: ^11.3.0
         version: 11.10.0

@@ -9,5 +9,6 @@ export const STANCE = "THIN" as const;
 
 export * from "./tiering.js";
 export * from "./registry.js";
+export * from "./frameworks.js";
 export * from "./attestation.js";
 export * from "./render.js";

@@ -10,6 +10,8 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@ring-zero/kernel": "workspace:*",
+    "@ring-zero/policy": "workspace:*",
     "better-sqlite3": "^11.3.0",
     "next": "14.2.18",
     "react": "18.3.1",

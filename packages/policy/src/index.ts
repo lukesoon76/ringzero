@@ -11,3 +11,4 @@ export * from "./capabilities.js";
 export * from "./dsl.js";
 export * from "./tiers.js";
 export * from "./credit-memo.js";
+export * from "./workflow-spec.js";
