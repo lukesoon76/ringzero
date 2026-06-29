@@ -13,11 +13,52 @@ body {
 }
 
 body {
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-family: var(--font-sans), Inter, system-ui, sans-serif;
   font-size: 13px;
+  -webkit-font-smoothing: antialiased;
 }
 
 a {
   color: inherit;
   text-decoration: none;
+}
+
+/* ---- React Flow (studio canvas) dark theming ---- */
+.react-flow__attribution {
+  display: none;
+}
+.react-flow__handle {
+  width: 9px;
+  height: 9px;
+  border: 2px solid #0a0e16;
+  background: #8b7cf6;
+}
+.react-flow__handle:hover {
+  background: #a797f8;
+}
+.react-flow__edge-path {
+  stroke-width: 1.5;
+}
+.react-flow__controls {
+  border: 1px solid #243049;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+}
+.react-flow__controls-button {
+  background: #141b2b;
+  border-bottom: 1px solid #243049;
+  color: #8794ad;
+  width: 28px;
+  height: 28px;
+}
+.react-flow__controls-button:hover {
+  background: #1a2336;
+  color: #e4eaf3;
+}
+.react-flow__controls-button svg {
+  fill: currentColor;
+}
+.react-flow__node {
+  font-family: var(--font-sans), Inter, system-ui, sans-serif;
 }
