@@ -8,8 +8,8 @@
 
 html,
 body {
-  background: #0a0e16;
-  color: #e4eaf3;
+  background: #0a0a0b;
+  color: #f4f4f5;
 }
 
 body {
@@ -30,31 +30,31 @@ a {
 .react-flow__handle {
   width: 9px;
   height: 9px;
-  border: 2px solid #0a0e16;
-  background: #8b7cf6;
+  border: 2px solid #0a0a0b;
+  background: #ededee;
 }
 .react-flow__handle:hover {
-  background: #a797f8;
+  background: #ffffff;
 }
 .react-flow__edge-path {
   stroke-width: 1.5;
 }
 .react-flow__controls {
-  border: 1px solid #243049;
+  border: 1px solid #2a2a2e;
   border-radius: 10px;
   overflow: hidden;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
 }
 .react-flow__controls-button {
-  background: #141b2b;
-  border-bottom: 1px solid #243049;
-  color: #8794ad;
+  background: #141416;
+  border-bottom: 1px solid #2a2a2e;
+  color: #8a8a92;
   width: 28px;
   height: 28px;
 }
 .react-flow__controls-button:hover {
-  background: #1a2336;
-  color: #e4eaf3;
+  background: #1b1b1e;
+  color: #f4f4f5;
 }
 .react-flow__controls-button svg {
   fill: currentColor;

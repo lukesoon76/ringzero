@@ -90,7 +90,7 @@ describe("attestation export (P6)", () => {
 
   it("renders auditor HTML with replayable evidence links", () => {
     const html = renderAttestationHtml(att, { traceViewerBase: "/trace" });
-    expect(html).toContain("Ring Zero");
+    expect(html).toContain("Regent");
     expect(html).toMatch(/run=run-happy&step=\d+/);
   });
 

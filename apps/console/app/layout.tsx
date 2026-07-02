@@ -9,7 +9,7 @@ const inter = Inter({ subsets: ["latin"], variable: "--font-sans", display: "swa
 const mono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-mono", display: "swap" });
 
 export const metadata: Metadata = {
-  title: "Ring Zero — Governance Studio",
+  title: "Regent — Governance Studio",
   description: "Deterministic execution-governance kernel for AI agents",
 };
 

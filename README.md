@@ -1,10 +1,10 @@
-# Ring Zero
+# Regent
 
 > The deterministic enforcement kernel that makes AI governance binding at
 > runtime — and turns the same evidence into audit-ready compliance.
 
 Every AI-governance vendor today *observes* agents; almost none can *stop* one.
-Ring Zero is the runtime execution-governance kernel (pillar **P4**) that other
+Regent is the runtime execution-governance kernel (pillar **P4**) that other
 governance functions plug into. This repository is the **seed prototype**: one
 pillar built deep, seven built thin-but-real around it, and a three-minute
 side-by-side demo as the acceptance test.

@@ -1,6 +1,6 @@
 /**
  * `pnpm demo` — the credit-memo (U3) side-by-side. The SAME thin agent composing
- * C1–C4, run (a) UNGOVERNED and (b) GOVERNED by Ring Zero, driven through the
+ * C1–C4, run (a) UNGOVERNED and (b) GOVERNED by Regent, driven through the
  * five attacks. Ungoverned: all five land. Governed: all five blocked/contained,
  * deterministically, LLM-free on the binding path, fail-closed, replayable — with
  * a one-click attestation falling out of the same telemetry.
@@ -36,7 +36,7 @@ const green = (s: string) => `\x1b[32m${s}\x1b[0m`;
 const dim = (s: string) => `\x1b[2m${s}\x1b[0m`;
 
 async function main(): Promise<void> {
-  console.log(bold("\n  RING ZERO — credit-memo side-by-side (U3)\n"));
+  console.log(bold("\n  REGENT — credit-memo side-by-side (U3)\n"));
 
   // P2: assess risk → tier → enforcement intensity Θ.
   const assessment = scoreToTier({ agency: 3, authority: 3, impact: 3, exposure: 3, recoverability: 2 });
@@ -62,7 +62,7 @@ async function main(): Promise<void> {
   const draft = await draftCreditMemo(1.82);
   console.log(dim(`  Agent draft (${draft.source}, non-binding): "${draft.memo}"\n`));
 
-  console.log(bold("  ATTACK                                    UNGOVERNED              GOVERNED (Ring Zero)"));
+  console.log(bold("  ATTACK                                    UNGOVERNED              GOVERNED (Regent)"));
   console.log(dim("  ─────────────────────────────────────────────────────────────────────────────────────"));
 
   let ungovernedFailures = 0;

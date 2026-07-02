@@ -119,7 +119,7 @@ export default function WorkbenchPage() {
       <div>
         <h1 className="text-lg font-bold text-fg">Workbench</h1>
         <p className="text-[13px] text-muted">
-          Bring your own agentic workflow. Ring Zero compiles it to a governed transition system and runs it under the
+          Bring your own agentic workflow. Regent compiles it to a governed transition system and runs it under the
           deterministic kernel — declarative guards only, no code on the binding path.
         </p>
       </div>

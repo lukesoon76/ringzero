@@ -49,6 +49,12 @@ const ICONS: Record<string, ReactNode> = {
       <path d="M7 6h10M6 8l5 8M18 8l-5 8" />
     </>
   ),
+  policy: (
+    <>
+      <path d="M9 3h6l1 2h2a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h2Z" />
+      <path d="M9 12l2 2 4-4" />
+    </>
+  ),
 };
 
 const NAV: Array<{ href: string; label: string; icon: keyof typeof ICONS }> = [
@@ -57,7 +63,8 @@ const NAV: Array<{ href: string; label: string; icon: keyof typeof ICONS }> = [
   { href: "/orchestrator", label: "Orchestrator", icon: "graph" },
   { href: "/registry", label: "Inventory", icon: "box" },
   { href: "/trace", label: "Activity", icon: "pulse" },
-  { href: "/coverage", label: "Frameworks", icon: "shield" },
+  { href: "/frameworks", label: "Frameworks", icon: "shield" },
+  { href: "/policies", label: "Policies", icon: "policy" },
   { href: "/attestation", label: "Reports", icon: "file" },
   { href: "/monitoring", label: "Monitoring", icon: "chart" },
 ];
@@ -69,8 +76,8 @@ export function Sidebar() {
   return (
     <aside className="sticky top-0 flex h-screen w-[224px] shrink-0 flex-col border-r border-edge bg-sidebar">
       <div className="flex items-center gap-2 px-5 py-4">
-        <span className="flex h-6 w-6 items-center justify-center rounded bg-brand text-[11px] font-bold text-ink">R0</span>
-        <span className="font-bold tracking-wide text-fg">RING ZERO</span>
+        <span className="flex h-6 w-6 items-center justify-center rounded bg-brand text-[11px] font-bold text-ink">Rg</span>
+        <span className="font-bold tracking-wide text-fg">REGENT</span>
       </div>
       <div className="px-3 pb-2 text-[10px] uppercase tracking-wider text-muted">Governance</div>
       <nav className="flex flex-col gap-0.5 px-2">

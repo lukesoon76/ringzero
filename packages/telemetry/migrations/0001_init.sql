@@ -8,7 +8,7 @@
 CREATE TABLE IF NOT EXISTS runs (
   run_id      TEXT PRIMARY KEY,        -- one run = one trace id
   agent_id    TEXT NOT NULL,
-  governed    INTEGER NOT NULL,        -- 0 = ungoverned, 1 = Ring Zero on
+  governed    INTEGER NOT NULL,        -- 0 = ungoverned, 1 = Regent on
   tier        INTEGER,                 -- resolved risk tier (P2), nullable until set
   started_at  TEXT NOT NULL,
   ended_at    TEXT,

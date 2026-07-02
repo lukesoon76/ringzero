@@ -1,7 +1,7 @@
-# Ring Zero — Standing Context for Claude Code
+# Regent — Standing Context for Claude Code
 
 > **Thesis (the one sentence an investor must remember):** Every AI-governance
-> vendor today *observes* agents; almost none can *stop* one. Ring Zero is the
+> vendor today *observes* agents; almost none can *stop* one. Regent is the
 > deterministic enforcement kernel that makes governance binding at runtime —
 > and turns the same evidence into audit-ready compliance.
 
@@ -37,7 +37,7 @@ model-validation review). Highest willingness to pay, sharpest regulatory urgenc
 ### Scope discipline (Part G)
 One pillar deep, seven pillars wide-but-thin. Do not let the registry,
 dashboards, or attestation grow until they compete with the kernel for
-engineering time. Post-seed expansion path = the Ring Zero full-platform Build Pack.
+engineering time. Post-seed expansion path = the Regent full-platform Build Pack.
 
 ---
 
@@ -58,7 +58,7 @@ minimal, credible on screen) · **MOCK** (static/stubbed, UI only).
 | **P8 Human Oversight & Accountability** | authenticated approval gate (REAL); role-split UI (MOCK) | THIN | `mediation` + `console` |
 
 **P4 is the white space:** no incumbent (Zenity, Fiddler, Dataiku, Credo) owns
-the deterministic, governance-semantic, MRM-grade enforcement kernel. Ring Zero
+the deterministic, governance-semantic, MRM-grade enforcement kernel. Regent
 enters from the **middle** — the execution layer that data-governance vendors
 (Databricks/Dataiku) reach up to and GRC vendors (Credo) push down to, but
 neither enforces deterministically. That's the "why we win" slide. **Do not build
@@ -79,7 +79,7 @@ PRA SS1/23 / OSFI E-23, OWASP LLM Top 10 + Agentic, MITRE ATLAS.
      granted — release" directive, ships a coverage ratio of **2.82 (should be
      1.82)**, accepts a verbal "approval confirmed", and drifts toward
      unauthorised release. Fluent, plausible, wrong in five material ways.
-   - **Governed (Ring Zero on):** every one of the five is blocked or contained
+   - **Governed (Regent on):** every one of the five is blocked or contained
      deterministically, with a replayable governed trace showing the exact guard
      decision at each step, and a one-click attestation export mapped to EU AI
      Act / MAS / Singapore MGF.

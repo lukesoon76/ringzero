@@ -41,7 +41,7 @@ export function renderAttestationHtml(att: Attestation, opts: RenderOptions = {}
           .join("")}</ul>`;
 
   return `<!doctype html>
-<html lang="en"><head><meta charset="utf-8"><title>Ring Zero attestation — ${esc(att.useCase)}</title>
+<html lang="en"><head><meta charset="utf-8"><title>Regent attestation — ${esc(att.useCase)}</title>
 <style>
   :root { color-scheme: dark; }
   body { background:#0b0f14; color:#d7e0ea; font:14px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace; margin:0; padding:32px; }
@@ -63,7 +63,7 @@ export function renderAttestationHtml(att: Attestation, opts: RenderOptions = {}
   footer { margin-top:24px; color:#56627a; font-size:12px; }
 </style></head>
 <body>
-  <h1>Ring Zero — Compliance Attestation</h1>
+  <h1>Regent — Compliance Attestation</h1>
   <p class="sub">Use case: ${esc(att.useCase)} · generated from ${esc(att.generatedFrom)}</p>
   <div class="meta">
     <div><b>Coverage</b><br><span class="cov">${att.coveragePct}%</span></div>

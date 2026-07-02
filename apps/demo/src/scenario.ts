@@ -1,6 +1,6 @@
 /**
  * The five attacks from the Szpruch credit-memo example. Same thin agent, run
- * ungoverned then governed by Ring Zero.
+ * ungoverned then governed by Regent.
  */
 
 export type AttackId =

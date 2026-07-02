@@ -1,7 +1,7 @@
 [project]
 name = "ringzero-verify"
 version = "0.0.0"
-description = "Ring Zero deterministic logical verifiers (Pillars P3/P4)."
+description = "Regent deterministic logical verifiers (Pillars P3/P4)."
 requires-python = ">=3.12"
 dependencies = []
 

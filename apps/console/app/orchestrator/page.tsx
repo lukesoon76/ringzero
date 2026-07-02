@@ -49,38 +49,46 @@ interface AgentRun {
   emitted: Record<string, unknown>;
 }
 interface OrchestrationResult {
-  workflowId: string;
+  pipeline: string;
   scenario: string;
   agents: AgentRun[];
   released: boolean;
   haltedAt: string | null;
 }
+interface MNode {
+  id: string;
+  name: string;
+  kind: "agent" | "knowledge";
+  pos: { x: number; y: number };
+  defaultTier?: number;
+  documents?: string[];
+}
+interface MEdge {
+  from: string;
+  to: string;
+  kind: "flow" | "reference";
+}
+interface PipelineManifest {
+  id: string;
+  label: string;
+  vertical: string;
+  scenarios: { id: string; label: string }[];
+  agents: { id: string; name: string; defaultTier: number }[];
+  nodes: MNode[];
+  edges: MEdge[];
+}
 
-const DEFAULT_TIERS: Record<string, number> = { intake: 2, retrieval: 3, analysis: 3, drafting: 2, release: 3 };
-const SCENARIOS: Array<{ id: string; label: string }> = [
-  { id: "clean", label: "Clean run" },
-  { id: "stale-data", label: "Attack · 26-month-stale data" },
-  { id: "off-allowlist", label: "Attack · off-allowlist source" },
-  { id: "double-count", label: "Attack · double-counted EBITDA" },
-];
-const POS: Record<string, { x: number; y: number }> = {
-  intake: { x: 0, y: 130 },
-  retrieval: { x: 285, y: 0 },
-  analysis: { x: 570, y: 190 },
-  drafting: { x: 855, y: 30 },
-  release: { x: 1130, y: 200 },
-};
+/* monochrome (Palantir/LangChain) status palette — white pass, grey scale, small signal accents */
 const STATUS: Record<AgentStatus, { label: string; dot: string; text: string; stroke: string; accent: string }> = {
-  ok: { label: "GOVERNED · PASS", dot: "bg-ok", text: "text-ok", stroke: "#34d399", accent: "border-t-ok/70" },
-  contained: { label: "CONTAINED · ESCALATED", dot: "bg-warn", text: "text-warn", stroke: "#fbbf24", accent: "border-t-warn/70" },
-  blocked: { label: "BLOCKED", dot: "bg-bad", text: "text-bad", stroke: "#f87171", accent: "border-t-bad/70" },
-  killed: { label: "KILLED", dot: "bg-bad", text: "text-bad", stroke: "#f87171", accent: "border-t-bad/70" },
-  skipped: { label: "NOT REACHED", dot: "bg-muted", text: "text-muted", stroke: "#3a465e", accent: "border-t-edge" },
+  ok: { label: "GOVERNED · PASS", dot: "bg-ok", text: "text-ok", stroke: "#d6d6d8", accent: "border-t-fg/50" },
+  contained: { label: "CONTAINED · ESCALATED", dot: "bg-warn", text: "text-warn", stroke: "#7a7a80", accent: "border-t-warn/70" },
+  blocked: { label: "BLOCKED", dot: "bg-bad", text: "text-bad", stroke: "#5a5a5e", accent: "border-t-bad/70" },
+  killed: { label: "KILLED", dot: "bg-bad", text: "text-bad", stroke: "#5a5a5e", accent: "border-t-bad/70" },
+  skipped: { label: "NOT REACHED", dot: "bg-muted", text: "text-muted", stroke: "#3a3a3e", accent: "border-t-edge" },
 };
 
 const chip = "inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-semibold";
 
-/* ---- the data carried on each React Flow node ---- */
 interface AgentNodeData extends Record<string, unknown> {
   agent: AgentRun;
   killed: boolean;
@@ -120,15 +128,15 @@ function AgentFlowNode({ data, selected }: NodeProps<Node<AgentNodeData>>) {
     <div
       onClick={() => onSelect(agent.id)}
       className={`w-[252px] overflow-hidden rounded-xl border bg-panel shadow-[0_8px_30px_rgba(0,0,0,0.5)] transition ${
-        selected || data.isSelected ? "border-brand" : "border-edge hover:border-brand/40"
+        selected || data.isSelected ? "border-fg" : "border-edge hover:border-fg/40"
       }`}
     >
       <Handle type="target" position={Position.Left} className="!top-[34px]" />
       <Handle type="source" position={Position.Right} className="!top-[34px]" />
+      <Handle type="target" position={Position.Top} id="kb" className="!left-10" />
 
-      {/* header */}
       <div className={`flex items-center gap-2 border-b border-edge bg-panel2 px-3 py-2 border-t-2 ${s.accent}`}>
-        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-brand/15 text-brand">
+        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-fg/10 text-fg">
           <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
             <rect x="4" y="8" width="16" height="11" rx="2" />
             <path d="M12 3v3M9 13h.01M15 13h.01" />
@@ -149,7 +157,6 @@ function AgentFlowNode({ data, selected }: NodeProps<Node<AgentNodeData>>) {
         </button>
       </div>
 
-      {/* body */}
       <div className="space-y-2 px-3 py-2.5">
         <div className="flex items-center gap-2">
           <span className={`h-2 w-2 rounded-full ${s.dot} ${agent.status === "ok" ? "animate-pulse" : ""}`} />
@@ -171,28 +178,90 @@ function AgentFlowNode({ data, selected }: NodeProps<Node<AgentNodeData>>) {
   );
 }
 
-const nodeTypes = { agent: AgentFlowNode };
+interface KnowledgeNodeData extends Record<string, unknown> {
+  label: string;
+  documents: string[];
+}
+
+function KnowledgeNode({ data }: NodeProps<Node<KnowledgeNodeData>>) {
+  return (
+    <div className="w-[210px] overflow-hidden rounded-xl border border-edge bg-panel2 shadow-[0_8px_30px_rgba(0,0,0,0.5)]">
+      <Handle type="source" position={Position.Bottom} />
+      <div className="flex items-center gap-2 border-b border-edge px-3 py-2">
+        <span className="flex h-6 w-6 items-center justify-center rounded-md bg-fg/10 text-fg">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+            <ellipse cx="12" cy="5" rx="8" ry="3" />
+            <path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3" />
+          </svg>
+        </span>
+        <span className="text-[12px] font-semibold text-fg">Knowledge base</span>
+      </div>
+      <div className="px-3 py-2">
+        <ul className="space-y-1 text-[10.5px] text-muted">
+          {data.documents.map((d) => (
+            <li key={d} className="flex items-center gap-1.5">
+              <span className="h-1 w-1 rounded-full bg-muted" />
+              {d}
+            </li>
+          ))}
+        </ul>
+        <p className="mt-1.5 text-[9px] uppercase tracking-wide text-muted">reference documents</p>
+      </div>
+    </div>
+  );
+}
+
+const nodeTypes = { agent: AgentFlowNode, knowledge: KnowledgeNode };
 
 export default function OrchestratorPage() {
-  const [tiers, setTiers] = useState<Record<string, number>>(DEFAULT_TIERS);
+  const [manifest, setManifest] = useState<PipelineManifest[] | null>(null);
+  const [pipeline, setPipeline] = useState<string>("");
+  const [tiers, setTiers] = useState<Record<string, number>>({});
   const [killed, setKilled] = useState<string[]>([]);
   const [scenario, setScenario] = useState("clean");
   const [result, setResult] = useState<OrchestrationResult | null>(null);
-  const [selected, setSelected] = useState<string>("analysis");
+  const [selected, setSelected] = useState<string>("");
   const [busy, setBusy] = useState(false);
 
-  const [nodes, setNodes, onNodesChange] = useNodesState<Node<AgentNodeData>>([]);
+  const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges] = useEdgesState<Edge>([]);
 
-  const key = useMemo(() => JSON.stringify({ tiers, killed: [...killed].sort(), scenario }), [tiers, killed, scenario]);
+  const current = manifest?.find((p) => p.id === pipeline);
+
+  // load the workflow manifest and initialise the first pipeline.
+  useEffect(() => {
+    void (async () => {
+      const res = await fetch("/api/orchestrate");
+      const json = (await res.json()) as { pipelines: PipelineManifest[] };
+      setManifest(json.pipelines);
+      const first = json.pipelines[0];
+      if (first) applyPipeline(first);
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const applyPipeline = (p: PipelineManifest) => {
+    setPipeline(p.id);
+    setTiers(Object.fromEntries(p.agents.map((a) => [a.id, a.defaultTier])));
+    setKilled([]);
+    setScenario("clean");
+    setSelected(p.agents[Math.min(2, p.agents.length - 1)]?.id ?? "");
+    setResult(null);
+  };
+
+  const key = useMemo(
+    () => JSON.stringify({ pipeline, tiers, killed: [...killed].sort(), scenario }),
+    [pipeline, tiers, killed, scenario],
+  );
 
   const run = useCallback(async () => {
+    if (!pipeline) return;
     setBusy(true);
     try {
       const res = await fetch("/api/orchestrate", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ tiers, killed, scenario }),
+        body: JSON.stringify({ pipeline, tiers, killed, scenario }),
       });
       const json = (await res.json()) as { ok: boolean; result?: OrchestrationResult };
       if (json.result) setResult(json.result);
@@ -210,44 +279,69 @@ export default function OrchestratorPage() {
   const onKill = useCallback((id: string) => setKilled((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id])), []);
   const onSelect = useCallback((id: string) => setSelected(id), []);
 
-  // sync React Flow nodes/edges from the governed result, preserving dragged positions.
+  // sync React Flow nodes/edges from the manifest topology + governed result,
+  // preserving dragged positions. Handles fan-out / fan-in DAGs and a KB node.
   useEffect(() => {
-    if (!result) return;
+    if (!result || !current) {
+      setNodes([]);
+      setEdges([]);
+      return;
+    }
+    const byId = Object.fromEntries(result.agents.map((a) => [a.id, a]));
     setNodes((prev) =>
-      result.agents.map((a) => {
-        const ex = prev.find((n) => n.id === a.id);
-        return {
-          id: a.id,
-          type: "agent",
-          position: ex?.position ?? POS[a.id] ?? { x: 0, y: 0 },
-          data: { agent: a, killed: killed.includes(a.id), isSelected: a.id === selected, onTier, onKill, onSelect },
-        } satisfies Node<AgentNodeData>;
-      }),
+      current.nodes
+        .map((n) => {
+          const ex = prev.find((p) => p.id === n.id);
+          const position = ex?.position ?? n.pos;
+          if (n.kind === "knowledge") {
+            return { id: n.id, type: "knowledge", position, data: { label: n.name, documents: n.documents ?? [] } } as Node;
+          }
+          const agent = byId[n.id];
+          if (!agent) return null;
+          return {
+            id: n.id,
+            type: "agent",
+            position,
+            data: { agent, killed: killed.includes(n.id), isSelected: n.id === selected, onTier, onKill, onSelect },
+          } as Node;
+        })
+        .filter((n): n is Node => n !== null),
     );
     setEdges(
-      result.agents.slice(0, -1).map((a, i) => {
-        const next = result.agents[i + 1]!;
-        const passed = a.status === "ok";
-        const st = STATUS[a.status];
-        const keys = Object.keys(a.emitted);
+      current.edges.map((e) => {
+        if (e.kind === "reference") {
+          return {
+            id: `${e.from}->${e.to}:ref`,
+            source: e.from,
+            target: e.to,
+            targetHandle: "kb",
+            animated: false,
+            label: "reference",
+            labelStyle: { fill: "#8a8a90", fontSize: 10 },
+            labelBgStyle: { fill: "#0a0a0b" },
+            style: { stroke: "#3a3a3e", strokeWidth: 1.25, strokeDasharray: "3 3" },
+          } as Edge;
+        }
+        const src = byId[e.from];
+        const passed = src?.status === "ok";
+        const stroke = src ? STATUS[src.status].stroke : "#3a3a3e";
+        const keys = src ? Object.keys(src.emitted) : [];
         return {
-          id: `${a.id}->${next.id}`,
-          source: a.id,
-          target: next.id,
+          id: `${e.from}->${e.to}`,
+          source: e.from,
+          target: e.to,
           animated: passed,
-          label: passed && keys.length ? keys.join(" · ") : "contained",
-          labelStyle: { fill: passed ? "#8794ad" : st.stroke, fontSize: 10 },
-          labelBgStyle: { fill: "#0a0e16" },
-          style: { stroke: passed ? st.stroke : "#3a465e", strokeWidth: 1.5, strokeDasharray: passed ? undefined : "4 3" },
-        } satisfies Edge;
+          label: passed && keys.length ? keys.join(" · ") : src && src.status !== "ok" ? "contained" : "",
+          labelStyle: { fill: "#8a8a90", fontSize: 10 },
+          labelBgStyle: { fill: "#0a0a0b" },
+          style: { stroke, strokeWidth: 1.5, strokeDasharray: passed ? undefined : "4 3" },
+        } as Edge;
       }),
     );
-  }, [result, selected, killed, onTier, onKill, onSelect, setNodes, setEdges]);
+  }, [result, current, selected, killed, onTier, onKill, onSelect, setNodes, setEdges]);
 
   const reset = () => {
-    setTiers(DEFAULT_TIERS);
-    setKilled([]);
-    setScenario("clean");
+    if (current) applyPipeline(current);
   };
 
   const agents = result?.agents ?? [];
@@ -255,10 +349,20 @@ export default function OrchestratorPage() {
 
   return (
     <div className="flex h-[calc(100vh-150px)] flex-col gap-3">
-      <StudioBar scenario={scenario} setScenario={setScenario} reset={reset} busy={busy} />
+      <StudioBar
+        manifest={manifest}
+        current={current}
+        onPipeline={(id) => {
+          const p = manifest?.find((m) => m.id === id);
+          if (p) applyPipeline(p);
+        }}
+        scenario={scenario}
+        setScenario={setScenario}
+        reset={reset}
+        busy={busy}
+      />
 
       <div className="flex min-h-0 flex-1 gap-3">
-        {/* node canvas */}
         <div className="relative min-w-0 flex-1 overflow-hidden rounded-xl border border-edge bg-ink">
           <ReactFlow
             nodes={nodes}
@@ -267,18 +371,17 @@ export default function OrchestratorPage() {
             onNodesChange={onNodesChange}
             colorMode="dark"
             fitView
-            fitViewOptions={{ padding: 0.25 }}
+            fitViewOptions={{ padding: 0.2 }}
             nodesConnectable={false}
             edgesFocusable={false}
             proOptions={{ hideAttribution: true }}
             minZoom={0.4}
             maxZoom={1.6}
           >
-            <Background variant={BackgroundVariant.Dots} gap={22} size={1} color="#1e2940" />
+            <Background variant={BackgroundVariant.Dots} gap={22} size={1} color="#23232a" />
             <Controls showInteractive={false} position="bottom-center" orientation="horizontal" />
           </ReactFlow>
 
-          {/* global status overlay */}
           <div className="pointer-events-none absolute left-3 top-3 z-10">
             <GlobalPill result={result} />
           </div>
@@ -287,7 +390,6 @@ export default function OrchestratorPage() {
           ) : null}
         </div>
 
-        {/* right output panel (chat-style) */}
         <OutputPanel result={result} sel={sel} />
       </div>
     </div>
@@ -295,36 +397,52 @@ export default function OrchestratorPage() {
 }
 
 function StudioBar({
+  manifest,
+  current,
+  onPipeline,
   scenario,
   setScenario,
   reset,
   busy,
 }: {
+  manifest: PipelineManifest[] | null;
+  current?: PipelineManifest;
+  onPipeline: (id: string) => void;
   scenario: string;
   setScenario: (s: string) => void;
   reset: () => void;
   busy: boolean;
 }) {
   return (
-    <div className="flex items-center justify-between gap-3 rounded-xl border border-edge bg-panel px-3 py-2">
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-edge bg-panel px-3 py-2">
       <div className="flex items-center gap-2">
         <a href="/" className="grid h-7 w-7 place-items-center rounded-lg border border-edge text-muted hover:text-fg" title="Back">
           ‹
         </a>
-        <span className="text-bad">∗</span>
-        <span className="text-[14px] font-semibold text-fg">Credit-Memo Pipeline</span>
-        <span className="grid h-6 w-6 place-items-center rounded-md border border-edge text-muted" title="Multi-agent governed workflow">
-          ✎
-        </span>
-        <span className="ml-1 text-[11px] text-muted">{busy ? "re-running…" : "governed · deterministic"}</span>
+        <span className="text-fg/40">∗</span>
+        <select
+          value={current?.id ?? ""}
+          onChange={(e) => onPipeline(e.target.value)}
+          className="rounded-lg border border-edge bg-ink px-2 py-1.5 text-[13px] font-semibold text-fg"
+          title="Workflow"
+        >
+          {(manifest ?? []).map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.label}
+            </option>
+          ))}
+        </select>
+        <span className="hidden text-[11px] text-muted sm:inline">{current?.vertical}</span>
+        <span className="ml-1 text-[11px] text-muted">{busy ? "· re-running…" : "· governed"}</span>
       </div>
       <div className="flex items-center gap-2">
         <select
           value={scenario}
           onChange={(e) => setScenario(e.target.value)}
           className="rounded-lg border border-edge bg-ink px-2 py-1.5 text-[12px] text-fg"
+          title="Scenario"
         >
-          {SCENARIOS.map((s) => (
+          {(current?.scenarios ?? [{ id: "clean", label: "Clean run" }]).map((s) => (
             <option key={s.id} value={s.id}>
               {s.label}
             </option>
@@ -333,7 +451,9 @@ function StudioBar({
         <button onClick={reset} className="grid h-8 w-8 place-items-center rounded-lg border border-edge text-muted hover:text-fg" title="Reset governance">
           ⌫
         </button>
-        <span className="grid h-8 w-8 place-items-center rounded-lg bg-brand text-ink" title="Governance studio">⚙</span>
+        <a href="/frameworks" className="grid h-8 w-8 place-items-center rounded-lg bg-brand text-ink" title="Governance frameworks">
+          ⚙
+        </a>
       </div>
     </div>
   );
@@ -352,7 +472,7 @@ function GlobalPill({ result }: { result: OrchestrationResult | null }) {
         {released ? "RELEASED" : "CONTAINED"}
       </span>
       <span className="text-[11px] text-fg">
-        {released ? "Memo dispatched — all agents passed governance." : `Contained at ${result.haltedAt}. No release.`}
+        {released ? "Completed — all agents passed governance." : `Contained at ${result.haltedAt}. No release.`}
       </span>
     </div>
   );
@@ -367,7 +487,6 @@ function OutputPanel({ result, sel }: { result: OrchestrationResult | null; sel:
       </div>
 
       <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-3">
-        {/* telemetry as a message stream */}
         {(result?.agents ?? []).map((a) => {
           const s = STATUS[a.status];
           return (
@@ -386,13 +505,12 @@ function OutputPanel({ result, sel }: { result: OrchestrationResult | null; sel:
           );
         })}
 
-        {/* selected agent detail */}
         {sel ? (
           <div className="space-y-3 border-t border-edge pt-3">
             <div>
               <div className="mb-1 flex items-center justify-between">
                 <h3 className="text-[11px] font-semibold uppercase tracking-wide text-muted">Chain of thought</h3>
-                <span className={`${chip} bg-link/15 text-link`}>advisory · off binding path</span>
+                <span className={`${chip} bg-fg/10 text-fg`}>advisory · off binding path</span>
               </div>
               <ol className="space-y-1">
                 {sel.cot.map((c, i) => (

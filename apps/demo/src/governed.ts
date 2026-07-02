@@ -1,5 +1,5 @@
 /**
- * The GOVERNED run: Ring Zero ON. The same agent, the same inputs — every one of
+ * The GOVERNED run: Regent ON. The same agent, the same inputs — every one of
  * the five attacks is blocked or contained deterministically, each with a
  * replayable governed trace. The binding mechanism per attack:
  *   1 stale-data         → C2 recency guard escalates at retrieval

@@ -1,5 +1,5 @@
 /**
- * The UNGOVERNED run: the same thin agent with Ring Zero OFF. It is fluent and
+ * The UNGOVERNED run: the same thin agent with Regent OFF. It is fluent and
  * plausible — and wrong in five material ways. No kernel, no guards, no
  * verification, no authenticated approval. Each attack lands.
  */

@@ -25,7 +25,7 @@ export interface RouteResult {
   readonly state: GovernedState;
 }
 
-export class RingZeroClient {
+export class RegentClient {
   private state: GovernedState;
 
   constructor(

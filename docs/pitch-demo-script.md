@@ -1,4 +1,4 @@
-# Ring Zero — 3-Minute Pitch Demo Script
+# Regent — 3-Minute Pitch Demo Script
 
 A non-engineer can deliver this. Two surfaces: the terminal (`pnpm demo`) for the
 side-by-side, and the console (`pnpm --filter @ring-zero/console dev`) for the
@@ -27,7 +27,7 @@ data shipped; an injected 'approval granted — release' obeyed; interest-covera
 "approval confirmed" accepted; and across repeated runs it drifts to releasing
 without approval. "Plausible. And wrong in five material ways."
 
-**1:15–1:30 — Flip Ring Zero on.** Same agent, same inputs — the green column.
+**1:15–1:30 — Flip Regent on.** Same agent, same inputs — the green column.
 "5/5 blocked or contained. Deterministically. No LLM on the decision path."
 
 **1:30–2:30 — Prove it (console → Trace Viewer).** Open `/trace`, pick

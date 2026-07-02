@@ -9,7 +9,7 @@ import {
 } from "@ring-zero/kernel";
 import { Gateway, IdentityRegistry } from "@ring-zero/mediation";
 import { describe, expect, it } from "vitest";
-import { PACKAGE, RingZeroClient, STANCE, type ToolInvocation } from "./index.js";
+import { PACKAGE, RegentClient, STANCE, type ToolInvocation } from "./index.js";
 
 const release: Action = { id: "C4.release", kind: "capability", intent: "dispatch", capabilityId: "C4" };
 const edge: Edge = { from: "approved", to: "released", action: release, effect: () => ({ data: { released: true } }), priority: 0 };
@@ -55,7 +55,7 @@ describe("@ring-zero/sdk — complete mediation client", () => {
       supervisingUser: "u1",
       grantedScopes: ["memo:release"],
     });
-    const client = new RingZeroClient("memo-agent", new Gateway(W, { identities }), theta, approved);
+    const client = new RegentClient("memo-agent", new Gateway(W, { identities }), theta, approved);
     const r = client.route(inv);
     expect(r.applied).toBe(true);
     expect(r.state.node).toBe("released");
@@ -67,7 +67,7 @@ describe("@ring-zero/sdk — complete mediation client", () => {
       supervisingUser: "u1",
       grantedScopes: ["source:read"],
     });
-    const client = new RingZeroClient("reader", new Gateway(W, { identities }), theta, approved);
+    const client = new RegentClient("reader", new Gateway(W, { identities }), theta, approved);
     const r = client.route(inv);
     expect(r.applied).toBe(false);
     expect(r.state.node).toBe("approved");

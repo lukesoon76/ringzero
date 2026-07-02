@@ -9,7 +9,7 @@ export interface Pillar {
   incumbents: string;
 }
 
-/** The 8-pillar map (Part A) as a product surface — what Ring Zero owns vs integrates. */
+/** The 8-pillar map (Part A) as a product surface — what Regent owns vs integrates. */
 export const PILLARS: Pillar[] = [
   {
     id: "P1",

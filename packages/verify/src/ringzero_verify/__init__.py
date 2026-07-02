@@ -1,4 +1,4 @@
-"""Ring Zero deterministic logical verifiers (Pillars P3/P4).
+"""Regent deterministic logical verifiers (Pillars P3/P4).
 
 Phase 0: stub. Phase 3 implements three deterministic verifier classes, each
 returning a correctness *guarantee* (not an LLM opinion), exposed to the kernel
