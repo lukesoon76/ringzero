@@ -16,6 +16,7 @@ export * from "./manifest.js";
 export * from "./connectors.js";
 export * from "./compile-manifest.js";
 export * from "./compliance.js";
+export * from "./attestation.js";
 
 export interface ToolInvocation {
   readonly capabilityId: string;

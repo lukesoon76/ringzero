@@ -8,6 +8,9 @@ import type { GovernanceLevel, WorkflowSpec } from "@ring-zero/policy";
 import type { AgentManifest, ManifestNode } from "./manifest.js";
 
 function tierFromRisk(m: AgentManifest): GovernanceLevel {
+  // Prefer the STORED materiality tier (the inventory is the record); fall back to
+  // deriving it from the raw risk signals when a connector hasn't set one.
+  if (m.materialityTier) return m.materialityTier;
   const s = m.riskSignals;
   const total = [s.agency, s.authority, s.impact, s.exposure, s.recoverability]
     .map((x) => Math.max(0, Math.min(3, Math.round(x))))

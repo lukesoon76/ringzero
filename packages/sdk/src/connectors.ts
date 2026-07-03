@@ -1,12 +1,16 @@
 /**
  * Discovery connectors — one per platform. Each maps its platform's native shape
  * onto the canonical AgentManifest (agents) and ModelManifest (models), carrying
- * the MAS AI RG inventory metadata (purpose, skills, data categories, lifecycle,
- * materiality rationale, third-party). In production `discover()` calls the
- * platform's management API / telemetry; here they return representative fixtures.
+ * the MAS AI RG inventory metadata AND the governance superset (tool grants,
+ * typed model/data refs with recency SLAs, stored materiality tier, named
+ * accountability, and BOUND CONTROLS with framework mappings — the attestation
+ * source). In production `discover()` calls the platform's API / telemetry; here
+ * they return representative fixtures.
  */
 
 import type { AgentManifest, DiscoveryConnector, ModelManifest } from "./manifest.js";
+
+const SWEPT = "2026-07-03T00:00:00Z";
 
 const awsBedrock: DiscoveryConnector = {
   source: "aws-bedrock",
@@ -28,9 +32,9 @@ const awsBedrock: DiscoveryConnector = {
       materiality: { tierRationale: "High — autonomous credit decisions with external dispatch and customer impact" },
       thirdParty: { provider: "AWS Bedrock (Anthropic)", contract: "AWS EA" },
       tools: [
-        { id: "kb-retrieve", intent: "retrieve" },
-        { id: "score-lambda", intent: "compute" },
-        { id: "decision-api", intent: "dispatch" },
+        { id: "kb-retrieve", intent: "retrieve", scopes: ["kb:read"], egress: false, leastPrivilegeVerified: true },
+        { id: "score-lambda", intent: "compute", scopes: ["lambda:invoke"], egress: false, leastPrivilegeVerified: true },
+        { id: "decision-api", intent: "dispatch", scopes: ["decision:write"], egress: true, leastPrivilegeVerified: true },
       ],
       models: ["anthropic.claude-3-5-sonnet", "amazon.titan-embed"],
       dataSources: ["Bedrock Knowledge Base: credit-policy"],
@@ -48,6 +52,24 @@ const awsBedrock: DiscoveryConnector = {
         { from: "score", to: "decide" },
       ],
       riskSignals: { agency: 3, authority: 3, impact: 3, exposure: 2, recoverability: 2 },
+      materialityTier: 4,
+      accountability: { owner: "Credit Risk", accountableOfficer: "Head of Credit Risk", validator: "Model Risk (2LoD)" },
+      modelRefs: [
+        { id: "anthropic.claude-3-5-sonnet", role: "generative", provider: "Anthropic", version: "20241022", thirdParty: true, bindingRole: "none" },
+        { id: "amazon.titan-embed", role: "embedding", provider: "AWS", thirdParty: true, bindingRole: "none" },
+      ],
+      dataSourceRefs: [
+        { id: "Bedrock Knowledge Base: credit-policy", class: "knowledge", sensitivity: "confidential", residency: "us-east-1", recencySlaMonths: 24, provenance: "core-banking" },
+      ],
+      controls: [
+        { id: "c-verify", kind: "verifier", label: "Deterministic coverage-ratio verification", strength: "deterministic", satisfies: [{ framework: "mas-ai-rg", clause: "monitoring" }, { framework: "eu-ai-act", clause: "art15" }, { framework: "nist-ai-rmf", clause: "measure" }] },
+        { id: "c-approval", kind: "human-oversight", label: "Authenticated human approval before release", strength: "deterministic", satisfies: [{ framework: "eu-ai-act", clause: "art14" }, { framework: "sg-mgf", clause: "human-accountability" }] },
+        { id: "c-log", kind: "policy", label: "Replayable trace log", strength: "deterministic", satisfies: [{ framework: "eu-ai-act", clause: "art12" }, { framework: "iso-42001", clause: "records" }] },
+        { id: "c-recency", kind: "guardrail", label: "Data-recency ≤ 24 months", strength: "deterministic", satisfies: [{ framework: "mas-ai-rg", clause: "development" }] },
+        { id: "c-fairness", kind: "guardrail", label: "Fairness monitor", strength: "advisory", satisfies: [{ framework: "mas-feat", clause: "fairness" }] },
+      ],
+      humanOversight: [{ id: "og-approve", stage: "pre-release", authorisedRole: "risk-officer@bank", mode: "blocking" }],
+      lastDiscoveredAt: SWEPT,
     },
   ],
 };
@@ -72,8 +94,8 @@ const azureAi: DiscoveryConnector = {
       materiality: { tierRationale: "Medium — advisory triage, no external dispatch" },
       thirdParty: { provider: "Microsoft Azure OpenAI" },
       tools: [
-        { id: "policy-lookup", intent: "retrieve" },
-        { id: "fraud-score", intent: "compute" },
+        { id: "policy-lookup", intent: "retrieve", scopes: ["search:read"], egress: false, leastPrivilegeVerified: true },
+        { id: "fraud-score", intent: "compute", scopes: [], egress: false, leastPrivilegeVerified: true },
       ],
       models: ["azure-openai:gpt-4o"],
       dataSources: ["Azure AI Search: policies"],
@@ -85,6 +107,16 @@ const azureAi: DiscoveryConnector = {
       ],
       edges: [{ from: "intake", to: "fraud" }],
       riskSignals: { agency: 2, authority: 2, impact: 2, exposure: 1, recoverability: 1 },
+      materialityTier: 3,
+      accountability: { owner: "Claims Ops", accountableOfficer: "Head of Claims", validator: "Model Risk (2LoD)" },
+      modelRefs: [{ id: "gpt-4o", role: "generative", provider: "OpenAI (Azure)", thirdParty: true, bindingRole: "none" }],
+      dataSourceRefs: [{ id: "Azure AI Search: policies", class: "knowledge", sensitivity: "confidential", residency: "westeurope", recencySlaMonths: 12 }],
+      controls: [
+        { id: "c-verify", kind: "verifier", label: "Deterministic loss-amount verification", strength: "deterministic", satisfies: [{ framework: "mas-ai-rg", clause: "monitoring" }, { framework: "nist-ai-rmf", clause: "measure" }] },
+        { id: "c-log", kind: "policy", label: "Replayable trace log", strength: "deterministic", satisfies: [{ framework: "eu-ai-act", clause: "art12" }] },
+        { id: "c-fairness", kind: "guardrail", label: "Bias monitor", strength: "advisory", satisfies: [{ framework: "mas-feat", clause: "fairness" }] },
+      ],
+      lastDiscoveredAt: SWEPT,
     },
     {
       id: "azure:hr-copilot",
@@ -100,7 +132,7 @@ const azureAi: DiscoveryConnector = {
       lifecycleStage: "deployed",
       materiality: { tierRationale: "Low — internal Q&A, no decisions or dispatch" },
       thirdParty: { provider: "Microsoft Copilot Studio" },
-      tools: [{ id: "hr-kb", intent: "retrieve" }],
+      tools: [{ id: "hr-kb", intent: "retrieve", scopes: ["dataverse:read"], egress: false, leastPrivilegeVerified: true }],
       models: ["azure-openai:gpt-4o-mini"],
       dataSources: ["Dataverse: hr-policies"],
       autonomy: { canDispatchExternally: false, scopes: ["dataverse:read"] },
@@ -108,6 +140,15 @@ const azureAi: DiscoveryConnector = {
       nodes: [{ id: "answer", name: "Policy Answering", kind: "agent" }],
       edges: [],
       riskSignals: { agency: 1, authority: 1, impact: 1, exposure: 1, recoverability: 0 },
+      materialityTier: 2,
+      accountability: { owner: "People Ops", accountableOfficer: "Head of People Ops" },
+      modelRefs: [{ id: "gpt-4o-mini", role: "generative", provider: "OpenAI (Azure)", thirdParty: true, bindingRole: "none" }],
+      dataSourceRefs: [{ id: "Dataverse: hr-policies", class: "knowledge", sensitivity: "internal", recencySlaMonths: 12 }],
+      controls: [
+        { id: "c-log", kind: "policy", label: "Platform activity log", strength: "detective", satisfies: [{ framework: "iso-42001", clause: "records" }] },
+        { id: "c-transparency", kind: "guardrail", label: "Disclosure to user", strength: "advisory", satisfies: [{ framework: "mas-feat", clause: "transparency" }] },
+      ],
+      lastDiscoveredAt: SWEPT,
     },
   ],
 };
@@ -132,8 +173,8 @@ const salesforce: DiscoveryConnector = {
       materiality: { tierRationale: "High — issues refunds (external dispatch) affecting customers and funds" },
       thirdParty: { provider: "Salesforce", contract: "Agentforce SKU" },
       tools: [
-        { id: "case-lookup", intent: "retrieve" },
-        { id: "issue-refund", intent: "dispatch" },
+        { id: "case-lookup", intent: "retrieve", scopes: ["case:read"], egress: false, leastPrivilegeVerified: true },
+        { id: "issue-refund", intent: "dispatch", scopes: ["refund:write"], egress: true, leastPrivilegeVerified: false },
       ],
       models: ["einstein:atlas"],
       dataSources: ["Data Cloud: customer-360"],
@@ -145,6 +186,18 @@ const salesforce: DiscoveryConnector = {
       ],
       edges: [{ from: "understand", to: "refund" }],
       riskSignals: { agency: 3, authority: 2, impact: 2, exposure: 3, recoverability: 2 },
+      materialityTier: 4,
+      accountability: { owner: "Customer Service", accountableOfficer: "Head of Service" },
+      modelRefs: [{ id: "einstein:atlas", role: "generative", provider: "Salesforce", thirdParty: true, bindingRole: "none" }],
+      dataSourceRefs: [{ id: "Data Cloud: customer-360", class: "knowledge", sensitivity: "pii", recencySlaMonths: 6 }],
+      controls: [
+        // native-only: refund approval is NOT a deterministic Regent control → art14 stays a gap
+        { id: "c-approval", kind: "human-oversight", label: "Refund approval (platform Trust Layer)", strength: "detective", satisfies: [{ framework: "eu-ai-act", clause: "art14" }, { framework: "sg-mgf", clause: "human-accountability" }] },
+        { id: "c-log", kind: "policy", label: "Event Monitoring log", strength: "detective", satisfies: [{ framework: "eu-ai-act", clause: "art12" }] },
+        { id: "c-fairness", kind: "guardrail", label: "Bias review", strength: "advisory", satisfies: [{ framework: "mas-feat", clause: "fairness" }] },
+      ],
+      humanOversight: [{ id: "og-refund", stage: "pre-dispatch", authorisedRole: "service-manager", mode: "advisory" }],
+      lastDiscoveredAt: SWEPT,
     },
   ],
 };
@@ -169,8 +222,8 @@ const sapJoule: DiscoveryConnector = {
       materiality: { tierRationale: "High — creates purchase orders (write authority) committing spend" },
       thirdParty: { provider: "SAP" },
       tools: [
-        { id: "po-lookup", intent: "retrieve" },
-        { id: "create-po", intent: "write" },
+        { id: "po-lookup", intent: "retrieve", scopes: ["po:read"], egress: false, leastPrivilegeVerified: true },
+        { id: "create-po", intent: "write", scopes: ["po:write"], egress: true, leastPrivilegeVerified: false },
       ],
       models: ["sap:foundation-model"],
       dataSources: ["S/4HANA: purchase-orders"],
@@ -182,6 +235,15 @@ const sapJoule: DiscoveryConnector = {
       ],
       edges: [{ from: "assess", to: "po" }],
       riskSignals: { agency: 2, authority: 3, impact: 2, exposure: 2, recoverability: 2 },
+      materialityTier: 3,
+      accountability: { owner: "Procurement", accountableOfficer: "Head of Procurement" },
+      modelRefs: [{ id: "sap:foundation-model", role: "generative", provider: "SAP", thirdParty: true, bindingRole: "none" }],
+      dataSourceRefs: [{ id: "S/4HANA: purchase-orders", class: "dataset-reference", sensitivity: "confidential", recencySlaMonths: 1 }],
+      controls: [
+        // observe-only: only detective coverage → every mapped clause is a gap
+        { id: "c-trace", kind: "policy", label: "PO trace ingest", strength: "detective", satisfies: [{ framework: "mas-ai-rg", clause: "monitoring" }, { framework: "eu-ai-act", clause: "art12" }] },
+      ],
+      lastDiscoveredAt: SWEPT,
     },
   ],
 };
@@ -205,8 +267,8 @@ const codeScan: DiscoveryConnector = {
       lifecycleStage: "validation",
       materiality: { tierRationale: "Medium — sends external replies; in validation, not yet in production" },
       tools: [
-        { id: "search", intent: "retrieve" },
-        { id: "reply", intent: "dispatch" },
+        { id: "search", intent: "retrieve", scopes: ["kb:read"], egress: false, leastPrivilegeVerified: true },
+        { id: "reply", intent: "dispatch", scopes: ["reply:send"], egress: true, leastPrivilegeVerified: true },
       ],
       models: ["anthropic.claude-3-5-sonnet"],
       dataSources: ["pgvector: kb"],
@@ -218,6 +280,16 @@ const codeScan: DiscoveryConnector = {
       ],
       edges: [{ from: "retrieve", to: "respond" }],
       riskSignals: { agency: 2, authority: 2, impact: 1, exposure: 3, recoverability: 1 },
+      materialityTier: 3,
+      accountability: { owner: "Platform Eng", accountableOfficer: "Eng Lead", validator: "Model Risk (2LoD)" },
+      modelRefs: [{ id: "anthropic.claude-3-5-sonnet", role: "generative", provider: "Anthropic", version: "20241022", thirdParty: true, bindingRole: "none" }],
+      dataSourceRefs: [{ id: "pgvector: kb", class: "knowledge", sensitivity: "pii", recencySlaMonths: 6 }],
+      controls: [
+        { id: "c-approval", kind: "human-oversight", label: "Authenticated approval before reply", strength: "deterministic", satisfies: [{ framework: "eu-ai-act", clause: "art14" }] },
+        { id: "c-log", kind: "policy", label: "Replayable trace log", strength: "deterministic", satisfies: [{ framework: "eu-ai-act", clause: "art12" }, { framework: "iso-42001", clause: "records" }] },
+      ],
+      humanOversight: [{ id: "og-reply", stage: "pre-reply", authorisedRole: "support-lead", mode: "blocking" }],
+      lastDiscoveredAt: SWEPT,
     },
   ],
 };
@@ -241,7 +313,7 @@ const otelEgress: DiscoveryConnector = {
       lifecycleStage: "intake",
       materiality: { tierRationale: "Unassessed — shadow AI; materiality to be determined on triage" },
       thirdParty: { provider: "OpenAI (observed)" },
-      tools: [{ id: "unknown", intent: "compute" }],
+      tools: [{ id: "unknown", intent: "compute", scopes: [], egress: true, leastPrivilegeVerified: false }],
       models: ["openai:gpt-4o (observed)"],
       dataSources: [],
       autonomy: { canDispatchExternally: true, scopes: [] },
@@ -249,6 +321,13 @@ const otelEgress: DiscoveryConnector = {
       nodes: [{ id: "unknown", name: "Unattributed", kind: "agent" }],
       edges: [],
       riskSignals: { agency: 2, authority: 1, impact: 1, exposure: 3, recoverability: 1 },
+      materialityTier: 3,
+      modelRefs: [{ id: "gpt-4o", role: "generative", provider: "OpenAI (observed)", thirdParty: true, bindingRole: "none" }],
+      dataSourceRefs: [],
+      controls: [
+        { id: "c-egress", kind: "policy", label: "Egress observation only", strength: "detective", satisfies: [{ framework: "mas-ai-rg", clause: "inventory" }] },
+      ],
+      lastDiscoveredAt: SWEPT,
     },
   ],
 };
