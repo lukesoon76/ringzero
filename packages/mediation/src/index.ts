@@ -13,3 +13,4 @@ export * from "./events.js";
 export * from "./approval-service.js";
 export * from "./gateway.js";
 export * from "./guardrails.js";
+export * from "./mcp-gateway.js";

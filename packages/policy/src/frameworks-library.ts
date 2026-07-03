@@ -103,6 +103,26 @@ export const FRAMEWORK_LIBRARY: readonly FrameworkPack[] = [
     ],
   },
   {
+    id: "mas-ai-rg",
+    name: "MAS Guidelines on AI Risk Management",
+    shortName: "MAS AI RG",
+    jurisdiction: "Singapore",
+    authority: "Monetary Authority of Singapore",
+    status: "Proposed",
+    effective: "2024 (consultation)",
+    summary:
+      "Supervisory guidelines for financial institutions on managing AI risk across identification, oversight, development, deployment, and third-party use — anchored on a current, materiality-tiered AI inventory.",
+    tags: ["financial-services", "inventory", "materiality", "third-party"],
+    requirements: [
+      { id: "inventory", title: "AI identification & inventory", text: "Maintain a current inventory of AI assets (agents, workflows, models, tools) at appropriate granularity, including shadow AI.", severity: "critical" },
+      { id: "materiality", title: "Materiality assessment", text: "Assess and record the materiality of each AI use case to calibrate risk management and oversight.", severity: "critical" },
+      { id: "oversight", title: "Governance & oversight", text: "Clear board/senior-management accountability and effective human oversight of AI.", severity: "high" },
+      { id: "development", title: "Development & validation", text: "Sound data management, model development, and independent validation across the lifecycle.", severity: "high" },
+      { id: "monitoring", title: "Deployment & monitoring", text: "Monitor deployed AI for performance, drift, and control effectiveness; contain on failure.", severity: "high" },
+      { id: "third-party", title: "Third-party AI", text: "Govern procured / third-party and foundation-model AI with commensurate due diligence.", severity: "high" },
+    ],
+  },
+  {
     id: "sg-mgf",
     name: "Singapore Model AI Governance Framework",
     shortName: "Singapore MGF",

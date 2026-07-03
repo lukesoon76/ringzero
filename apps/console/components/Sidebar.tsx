@@ -80,6 +80,18 @@ const ICONS: Record<string, ReactNode> = {
       <path d="M8.5 13L7 21l5-2.5L17 21l-1.5-8" />
     </>
   ),
+  radar: (
+    <>
+      <circle cx="11" cy="11" r="7" />
+      <path d="M11 11l4-2M21 21l-4-4" />
+    </>
+  ),
+  scale: (
+    <>
+      <path d="M12 3v18M7 21h10" />
+      <path d="M12 6l-6 2 2 4a3 3 0 0 1-4 0l2-4M12 6l6 2-2 4a3 3 0 0 0 4 0l-2-4" />
+    </>
+  ),
 };
 
 const NAV: Array<{ href: string; label: string; icon: keyof typeof ICONS }> = [
@@ -89,9 +101,11 @@ const NAV: Array<{ href: string; label: string; icon: keyof typeof ICONS }> = [
   { href: "/guardrails", label: "Guardrails", icon: "guard" },
   { href: "/oversight", label: "Oversight", icon: "inbox" },
   { href: "/assurance", label: "Assurance", icon: "target" },
-  { href: "/registry", label: "Inventory", icon: "box" },
+  { href: "/discovery", label: "Discovery", icon: "radar" },
+  { href: "/inventory", label: "Inventory", icon: "box" },
   { href: "/trace", label: "Activity", icon: "pulse" },
   { href: "/frameworks", label: "Frameworks", icon: "shield" },
+  { href: "/compliance", label: "Compliance", icon: "scale" },
   { href: "/policies", label: "Policies", icon: "policy" },
   { href: "/trust", label: "Trust Cards", icon: "award" },
   { href: "/attestation", label: "Reports", icon: "file" },
