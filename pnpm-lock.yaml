@@ -47,9 +47,15 @@ importers:
       '@ring-zero/kernel':
         specifier: workspace:*
         version: link:../../packages/kernel
+      '@ring-zero/mediation':
+        specifier: workspace:*
+        version: link:../../packages/mediation
       '@ring-zero/policy':
         specifier: workspace:*
         version: link:../../packages/policy
+      '@ring-zero/sdk':
+        specifier: workspace:*
+        version: link:../../packages/sdk
       '@xyflow/react':
         specifier: ^12.11.1
         version: 12.11.1(@types/react-dom@18.3.1)(@types/react@18.3.12)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -153,6 +159,9 @@ importers:
       '@ring-zero/mediation':
         specifier: workspace:*
         version: link:../mediation
+      '@ring-zero/policy':
+        specifier: workspace:*
+        version: link:../policy
 
   packages/telemetry:
     dependencies:

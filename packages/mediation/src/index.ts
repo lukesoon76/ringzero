@@ -12,3 +12,4 @@ export * from "./secrets.js";
 export * from "./events.js";
 export * from "./approval-service.js";
 export * from "./gateway.js";
+export * from "./guardrails.js";

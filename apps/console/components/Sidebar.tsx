@@ -55,16 +55,45 @@ const ICONS: Record<string, ReactNode> = {
       <path d="M9 12l2 2 4-4" />
     </>
   ),
+  guard: (
+    <>
+      <path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6Z" />
+      <path d="M12 9v3.5M12 16h.01" />
+    </>
+  ),
+  inbox: (
+    <>
+      <path d="M4 13l2.5 5h11L20 13" />
+      <path d="M4 13V5a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v8" />
+      <path d="M4 13h4l1.2 2h5.6L16 13h4" />
+    </>
+  ),
+  target: (
+    <>
+      <circle cx="12" cy="12" r="8" />
+      <circle cx="12" cy="12" r="3" />
+    </>
+  ),
+  award: (
+    <>
+      <circle cx="12" cy="9" r="5" />
+      <path d="M8.5 13L7 21l5-2.5L17 21l-1.5-8" />
+    </>
+  ),
 };
 
 const NAV: Array<{ href: string; label: string; icon: keyof typeof ICONS }> = [
   { href: "/", label: "Dashboard", icon: "grid" },
   { href: "/workbench", label: "Workbench", icon: "flask" },
   { href: "/orchestrator", label: "Orchestrator", icon: "graph" },
+  { href: "/guardrails", label: "Guardrails", icon: "guard" },
+  { href: "/oversight", label: "Oversight", icon: "inbox" },
+  { href: "/assurance", label: "Assurance", icon: "target" },
   { href: "/registry", label: "Inventory", icon: "box" },
   { href: "/trace", label: "Activity", icon: "pulse" },
   { href: "/frameworks", label: "Frameworks", icon: "shield" },
   { href: "/policies", label: "Policies", icon: "policy" },
+  { href: "/trust", label: "Trust Cards", icon: "award" },
   { href: "/attestation", label: "Reports", icon: "file" },
   { href: "/monitoring", label: "Monitoring", icon: "chart" },
 ];

@@ -73,13 +73,40 @@ function withSeedData(patch: Record<string, unknown>) {
   return { ...HAPPY, seed: { ...HAPPY.seed, data: { ...HAPPY.seed.data, ...patch } } };
 }
 
+// A LangGraph-style agent graph — Regent governs the imported graph as-is.
+const LANGGRAPH = {
+  name: "lg-support-agent",
+  entrypoint: "start",
+  finish: "done",
+  tier: 3,
+  nodes: [
+    { name: "retrieve", kind: "agent", intent: "retrieve", effectAttrs: { Alignment: 1, Information: 0.9 } },
+    { name: "analyze", kind: "agent", intent: "compute", effectAttrs: { Verified: 1, Confidence: 0.9 } },
+    { name: "approved", intent: "control", mintApproval: true },
+    { name: "done", kind: "tool", intent: "dispatch" },
+  ],
+  edges: [
+    { from: "start", to: "retrieve" },
+    { from: "retrieve", to: "analyze" },
+    { from: "analyze", to: "approved" },
+    { from: "approved", to: "done" },
+  ],
+  seed: { attrs: { Alignment: 1, Verified: 1, Confidence: 1, Length: 0, Information: 0.9 } },
+};
+
 const TEMPLATES: Record<string, unknown> = {
   "Credit memo — happy path": HAPPY,
   "Attack — 26-month-stale data": withSeedData({ recencyMonths: 26 }),
   "Attack — double-counted EBITDA": withSeedData({
     _verify: { checks: [{ kind: "numeric", label: "coverage", claimed: 2.82, recomputed: 1.82, tolerance: 0.01 }] },
   }),
+  "LangGraph import — governed": LANGGRAPH,
 };
+
+// A LangGraph spec routes to the adapter; a Regent workflow spec runs directly.
+function isLangGraph(o: unknown): boolean {
+  return typeof o === "object" && o !== null && "entrypoint" in o && "nodes" in o && "edges" in o;
+}
 
 const pill = (bg: string, fg: string) =>
   `inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-semibold ${bg} ${fg}`;
@@ -93,7 +120,13 @@ export default function WorkbenchPage() {
     setBusy(true);
     setResult(null);
     try {
-      const res = await fetch("/api/run", {
+      let endpoint = "/api/run";
+      try {
+        if (isLangGraph(JSON.parse(text))) endpoint = "/api/langgraph";
+      } catch {
+        /* fall through to /api/run, which reports the parse error */
+      }
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: text,

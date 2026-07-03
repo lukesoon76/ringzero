@@ -225,6 +225,47 @@ export default function DashboardPage() {
           </div>
         </Panel>
       </div>
+
+      {/* advisory drift */}
+      <Panel title="Model drift — advisory · simulated">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <Gauge label="Release-rate drift" d={drift(relHist)} />
+          <Gauge label="Escalation-rate drift" d={drift(escHist)} />
+          <Gauge label="Guard-load drift" d={drift(thru)} />
+        </div>
+        <p className="mt-2 text-[11px] text-muted">
+          Advisory only — drift is an observability signal, never a binding gate. Deterministic enforcement is unaffected by it.
+        </p>
+      </Panel>
+    </div>
+  );
+}
+
+function drift(series: number[]) {
+  const nz = series.filter((v) => v > 0);
+  if (nz.length < 6) return { recent: nz.at(-1) ?? 0, deltaPct: 0, flagged: false };
+  const third = Math.max(2, Math.floor(nz.length / 3));
+  const mean = (a: number[]) => a.reduce((n, v) => n + v, 0) / Math.max(1, a.length);
+  const baseline = mean(nz.slice(0, third));
+  const recent = mean(nz.slice(-third));
+  const deltaPct = baseline ? Math.round(((recent - baseline) / baseline) * 100) : 0;
+  return { recent: Math.round(recent), deltaPct, flagged: Math.abs(deltaPct) >= 25 };
+}
+
+function Gauge({ label, d }: { label: string; d: { recent: number; deltaPct: number; flagged: boolean } }) {
+  const up = d.deltaPct >= 0;
+  return (
+    <div className="rounded-lg border border-edge bg-ink/50 p-3">
+      <div className="text-[10px] uppercase tracking-wider text-muted">{label}</div>
+      <div className="mt-0.5 flex items-baseline gap-2">
+        <span className="text-xl font-semibold tabular-nums text-fg">{d.recent}</span>
+        <span className={`text-[12px] ${d.flagged ? "text-warn" : "text-muted"}`}>{up ? "▲" : "▼"} {Math.abs(d.deltaPct)}%</span>
+      </div>
+      <div className="mt-1">
+        <span className={`inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-semibold ${d.flagged ? "bg-warn/15 text-warn" : "bg-ink text-muted"}`}>
+          {d.flagged ? "drift flagged (advisory)" : "stable"}
+        </span>
+      </div>
     </div>
   );
 }

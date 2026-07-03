@@ -14,6 +14,7 @@
   },
   "dependencies": {
     "@ring-zero/kernel": "workspace:*",
-    "@ring-zero/mediation": "workspace:*"
+    "@ring-zero/mediation": "workspace:*",
+    "@ring-zero/policy": "workspace:*"
   }
 }

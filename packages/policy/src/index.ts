@@ -14,3 +14,5 @@ export * from "./credit-memo.js";
 export * from "./workflow-spec.js";
 export * from "./orchestration.js";
 export * from "./frameworks-library.js";
+export * from "./eval-harness.js";
+export * from "./trust-card.js";

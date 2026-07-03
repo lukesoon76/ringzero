@@ -11,7 +11,9 @@
   },
   "dependencies": {
     "@ring-zero/kernel": "workspace:*",
+    "@ring-zero/mediation": "workspace:*",
     "@ring-zero/policy": "workspace:*",
+    "@ring-zero/sdk": "workspace:*",
     "@xyflow/react": "^12.11.1",
     "better-sqlite3": "^11.3.0",
     "next": "14.2.18",
