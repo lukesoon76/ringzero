@@ -92,6 +92,11 @@ const ICONS: Record<string, ReactNode> = {
       <path d="M12 6l-6 2 2 4a3 3 0 0 1-4 0l2-4M12 6l6 2-2 4a3 3 0 0 0 4 0l-2-4" />
     </>
   ),
+  bank: (
+    <>
+      <path d="M3 10l9-5 9 5M4 10v8m4-8v8m8-8v8m4-8v8M3 21h18" />
+    </>
+  ),
 };
 
 const NAV: Array<{ href: string; label: string; icon: keyof typeof ICONS }> = [
@@ -106,6 +111,7 @@ const NAV: Array<{ href: string; label: string; icon: keyof typeof ICONS }> = [
   { href: "/trace", label: "Activity", icon: "pulse" },
   { href: "/frameworks", label: "Frameworks", icon: "shield" },
   { href: "/compliance", label: "Compliance", icon: "scale" },
+  { href: "/finance", label: "Financial", icon: "bank" },
   { href: "/policies", label: "Policies", icon: "policy" },
   { href: "/trust", label: "Trust Cards", icon: "award" },
   { href: "/attestation", label: "Reports", icon: "file" },
