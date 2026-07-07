@@ -123,6 +123,25 @@ export const FRAMEWORK_LIBRARY: readonly FrameworkPack[] = [
     ],
   },
   {
+    id: "mas-safr",
+    name: "Safeguards for Agentic Finance at Runtime",
+    shortName: "MAS SAFR",
+    jurisdiction: "Singapore",
+    authority: "MAS (MindForge-aligned)",
+    status: "Proposed",
+    effective: "framing — verify against published instrument",
+    summary:
+      "Runtime safeguards for autonomous financial agents: real-time checkpoints before execution, materiality-gated human oversight (automation-bias control), cumulative exposure limits, and reproducible forensic replay.",
+    tags: ["agentic-finance", "runtime", "materiality", "exposure"],
+    requirements: [
+      { id: "runtime-checkpoint", title: "Runtime execution checkpoint", text: "A real-time technical control that intercepts and can contain an agentic transaction before it executes.", severity: "critical" },
+      { id: "materiality-gating", title: "Materiality-gated human oversight", text: "Materiality assessment gates high-value or risk-profile-changing actions to authenticated human oversight (automation-bias control).", severity: "critical" },
+      { id: "scope-mandate", title: "Scoped financial mandate", text: "Technical control restricting the agent to its authorised financial operations (default-deny least privilege).", severity: "high" },
+      { id: "cumulative-exposure", title: "Cumulative exposure limit", text: "Monitor and cap cumulative financial exposure across a session; contain on breach.", severity: "high" },
+      { id: "forensic-replay", title: "Forensic replay", text: "Immutable record-keeping enabling reproducible forensic replay of every decision (SR 11-7 / DORA).", severity: "high" },
+    ],
+  },
+  {
     id: "sg-mgf",
     name: "Singapore Model AI Governance Framework",
     shortName: "Singapore MGF",

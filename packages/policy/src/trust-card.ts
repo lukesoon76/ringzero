@@ -12,7 +12,7 @@ import { runEvalSuite } from "./eval-harness.js";
 import { FRAMEWORK_LIBRARY } from "./frameworks-library.js";
 import { PIPELINES } from "./orchestration.js";
 
-const CORE_FRAMEWORKS = ["eu-ai-act", "nist-ai-rmf", "iso-42001", "mas-feat", "mas-ai-rg", "sg-mgf"] as const;
+const CORE_FRAMEWORKS = ["eu-ai-act", "nist-ai-rmf", "iso-42001", "mas-feat", "mas-ai-rg", "mas-safr", "sg-mgf"] as const;
 
 export interface TrustClaim {
   readonly label: string;

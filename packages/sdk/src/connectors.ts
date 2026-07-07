@@ -67,6 +67,11 @@ const awsBedrock: DiscoveryConnector = {
         { id: "c-log", kind: "policy", label: "Replayable trace log", strength: "deterministic", satisfies: [{ framework: "eu-ai-act", clause: "art12" }, { framework: "iso-42001", clause: "records" }] },
         { id: "c-recency", kind: "guardrail", label: "Data-recency ≤ 24 months", strength: "deterministic", satisfies: [{ framework: "mas-ai-rg", clause: "development" }] },
         { id: "c-fairness", kind: "guardrail", label: "Fairness monitor", strength: "advisory", satisfies: [{ framework: "mas-feat", clause: "fairness" }] },
+        // Financial runtime controls (SAFR) — deterministic, enforced inline via the MCP gateway.
+        { id: "c-fin-scope", kind: "guardrail", label: "Financial scope boundary", strength: "deterministic", satisfies: [{ framework: "mas-safr", clause: "scope-mandate" }] },
+        { id: "c-fin-materiality", kind: "human-oversight", label: "Materiality human-in-the-loop", strength: "deterministic", satisfies: [{ framework: "mas-safr", clause: "materiality-gating" }] },
+        { id: "c-fin-exposure", kind: "containment", label: "Cumulative session-exposure cap", strength: "deterministic", satisfies: [{ framework: "mas-safr", clause: "cumulative-exposure" }, { framework: "mas-safr", clause: "runtime-checkpoint" }] },
+        { id: "c-fin-replay", kind: "policy", label: "Forensic replay ledger", strength: "deterministic", satisfies: [{ framework: "mas-safr", clause: "forensic-replay" }] },
       ],
       humanOversight: [{ id: "og-approve", stage: "pre-release", authorisedRole: "risk-officer@bank", mode: "blocking" }],
       lastDiscoveredAt: SWEPT,

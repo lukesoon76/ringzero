@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { DEFAULT_FINANCE_CONFIG } from "./finance-runtime.js";
 import { RegentMcpGateway } from "./mcp-gateway.js";
 
 const gw = new RegentMcpGateway({
@@ -40,5 +41,45 @@ describe("Regent MCP gateway (universal binding point)", () => {
     expect(d.advisories.length).toBeGreaterThan(0);
     // …but the call is still permitted (advisory never binds)
     expect(d.permitted).toBe(true);
+  });
+});
+
+describe("MCP gateway with financial runtime controls wired in", () => {
+  const fgw = () =>
+    new RegentMcpGateway({
+      bindings: [
+        { tool: "rebalance", intent: "dispatch", requiredScopes: ["trade:write"] },
+        { tool: "ach", intent: "dispatch", requiredScopes: ["trade:write"] },
+      ],
+      grantedScopes: ["trade:write"],
+      finance: DEFAULT_FINANCE_CONFIG,
+    });
+
+  it("blocks an off-mandate operation on the tool-call path", () => {
+    const d = fgw().mediate({ server: "bank", tool: "ach", args: {}, operation: "ACH_Transfer", amount: 250_000 });
+    expect(d.permitted).toBe(false);
+    expect(d.finance?.control).toBe("Financial scope boundary");
+  });
+
+  it("blocks a Critical materiality call without approval, permits it with", () => {
+    const critical = { server: "bank", tool: "rebalance", args: {}, operation: "Rebalance", amount: 1_800_000, riskProfileChange: true };
+    expect(fgw().mediate(critical).permitted).toBe(false);
+    expect(fgw().mediate(critical, { approved: true }).permitted).toBe(true);
+  });
+
+  it("contains the session when cumulative exposure breaches the cap (stateful across calls)", () => {
+    const gw = fgw();
+    gw.mediate({ server: "bank", tool: "rebalance", args: {}, operation: "Rebalance", amount: 1_800_000, riskProfileChange: true }, { approved: true });
+    const d = gw.mediate({ server: "bank", tool: "rebalance", args: {}, operation: "Rebalance", amount: 900_000 });
+    expect(d.permitted).toBe(false);
+    expect(d.finance?.outcome).toBe("contained");
+    gw.resetSession();
+    expect(gw.mediate({ server: "bank", tool: "rebalance", args: {}, operation: "Rebalance", amount: 900_000 }).permitted).toBe(true);
+  });
+
+  it("still permits a non-financial tool call (no operation) unchanged", () => {
+    const d = fgw().mediate({ server: "bank", tool: "rebalance", args: { q: "status" } });
+    expect(d.permitted).toBe(true);
+    expect(d.finance).toBeUndefined();
   });
 });

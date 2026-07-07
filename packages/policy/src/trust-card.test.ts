@@ -16,7 +16,8 @@ describe("trust card", () => {
     expect(card.guarantees).toEqual({ deterministicBindingPath: true, llmFree: true, failClosed: true, replayable: true });
     expect(card.frameworks.map((f) => f.shortName)).toContain("EU AI Act");
     expect(card.frameworks.map((f) => f.shortName)).toContain("MAS AI RG");
-    expect(card.frameworks.length).toBe(6);
+    expect(card.frameworks.map((f) => f.shortName)).toContain("MAS SAFR");
+    expect(card.frameworks.length).toBe(7);
     expect(card.claims.some((c) => c.label === "Attacks contained")).toBe(true);
   });
 

@@ -17,6 +17,15 @@ describe("attestation as a projection of the inventory record", () => {
     expect(att.gaps.some((g) => g.startsWith("mas-feat:fairness"))).toBe(true);
   });
 
+  it("attests MAS SAFR runtime controls for the finance agent (deterministic)", () => {
+    const att = toAttestation(agents["aws-bedrock:loan-underwriter"]!);
+    const safr = att.frameworks.find((f) => f.framework === "mas-safr")!;
+    expect(safr).toBeDefined();
+    expect(safr.clauses.find((c) => c.clause === "materiality-gating")?.status).toBe("attested");
+    expect(safr.clauses.find((c) => c.clause === "cumulative-exposure")?.status).toBe("attested");
+    expect(safr.coveragePct).toBe(100);
+  });
+
   it("an observe-only agent's clauses are all gaps (only detective controls)", () => {
     const att = toAttestation(agents["sap:procurement"]!);
     expect(att.frameworks.every((f) => f.attested === 0)).toBe(true);

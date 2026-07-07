@@ -151,7 +151,7 @@ export interface Jurisdiction {
 
 /** Franchise / jurisdiction → applicable frameworks (drives the geography comparison). */
 export const JURISDICTIONS: readonly Jurisdiction[] = [
-  { id: "sg", label: "Singapore", region: "APAC", frameworks: ["mas-feat", "mas-ai-rg", "sg-mgf"] },
+  { id: "sg", label: "Singapore", region: "APAC", frameworks: ["mas-feat", "mas-ai-rg", "mas-safr", "sg-mgf"] },
   { id: "eu", label: "European Union", region: "EMEA", frameworks: ["eu-ai-act", "iso-42001"] },
   { id: "us", label: "United States", region: "AMER", frameworks: ["nist-ai-rmf", "colorado-sb21-169", "nyc-ll144"] },
   { id: "intl", label: "International baseline", region: "Global", frameworks: ["iso-42001", "nist-ai-rmf"] },
