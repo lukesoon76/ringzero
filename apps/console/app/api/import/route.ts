@@ -25,10 +25,10 @@ export async function POST(req: Request): Promise<NextResponse> {
       ok: true,
       format,
       tier: workflow.tier,
-      states: workflow.states.length,
-      transitions: workflow.transitions.length,
       released,
       trajectory,
+      // the compiled spec so the client can onboard (inventory / orchestrator)
+      spec: { id: workflow.id, tier: workflow.tier ?? 3, states: workflow.states, transitions: workflow.transitions },
     });
   } catch (err) {
     return NextResponse.json({ ok: false, error: err instanceof Error ? err.message : String(err) }, { status: 400 });

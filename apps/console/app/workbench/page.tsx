@@ -25,12 +25,59 @@ interface Trajectory {
   terminal: { node: string; kind: string; detail: string };
   steps: Step[];
 }
+interface WorkflowSpecLite {
+  id: string;
+  tier: number;
+  states: { id: string; initial?: boolean; terminal?: boolean }[];
+  transitions: { from: string; to: string; action: { id: string; intent: string } }[];
+}
 interface RunResponse {
   ok: boolean;
   released?: boolean;
   trajectory?: Trajectory;
   error?: string;
   format?: string;
+  spec?: WorkflowSpecLite;
+}
+
+const IMPORTED_AGENTS = "regent-imported-agents";
+const IMPORTED_WORKFLOW = "regent-imported-workflow";
+
+function buildGraph(spec: WorkflowSpecLite) {
+  const dispatchTargets = new Set(spec.transitions.filter((t) => t.action.intent === "dispatch").map((t) => t.to));
+  const nodes = spec.states.map((s) => ({ id: s.id, name: s.id, kind: dispatchTargets.has(s.id) ? "tool" : "agent" }));
+  const edges = spec.transitions.map((t) => ({ from: t.from, to: t.to }));
+  return { nodes, edges };
+}
+
+/** Convert an imported, compiled workflow into an inventory AgentManifest (client-side). */
+function toManifest(r: RunResponse, name: string) {
+  const spec = r.spec!;
+  const { nodes, edges } = buildGraph(spec);
+  const intents = [...new Set(spec.transitions.map((t) => t.action.intent))];
+  return {
+    id: `imported:${name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "workflow"}`,
+    name,
+    source: "imported",
+    externalRef: `upload · ${r.format}`,
+    discoveredVia: "code",
+    runtime: { platform: `Imported (${r.format})` },
+    owner: "Unassigned (imported)",
+    purpose: `Imported ${r.format} workflow`,
+    skills: [],
+    dataCategories: [],
+    lifecycleStage: "development",
+    materiality: { tierRationale: `Imported; governed dry-run terminated ${r.trajectory?.terminal.kind}` },
+    tools: spec.transitions.map((t) => ({ id: t.action.id, intent: t.action.intent })),
+    models: [],
+    dataSources: [],
+    autonomy: { canDispatchExternally: intents.includes("dispatch"), scopes: [] },
+    enforcement: { mode: "inline", bindable: true, via: "Regent import (governed)" },
+    nodes,
+    edges,
+    riskSignals: { agency: 2, authority: 2, impact: 2, exposure: 2, recoverability: 2 },
+    materialityTier: spec.tier,
+  };
 }
 
 const HAPPY = {
@@ -142,10 +189,12 @@ export default function WorkbenchPage() {
   const [text, setText] = useState(JSON.stringify(HAPPY, null, 2));
   const [result, setResult] = useState<RunResponse | null>(null);
   const [busy, setBusy] = useState(false);
+  const [onboardMsg, setOnboardMsg] = useState("");
 
   async function run() {
     setBusy(true);
     setResult(null);
+    setOnboardMsg("");
     try {
       // Unified import: the server detects the format (Regent spec / LangGraph /
       // CrewAI / agent manifest), compiles it, and runs a governed dry-run.
@@ -181,6 +230,30 @@ export default function WorkbenchPage() {
   }
 
   const detected = detectFormat(text);
+
+  function addToInventory() {
+    if (!result?.spec) return;
+    const manifest = toManifest(result, result.spec.id);
+    try {
+      const raw = localStorage.getItem(IMPORTED_AGENTS);
+      const list = raw ? (JSON.parse(raw) as { id: string }[]) : [];
+      localStorage.setItem(IMPORTED_AGENTS, JSON.stringify([...list.filter((a) => a.id !== manifest.id), manifest]));
+      setOnboardMsg("added to Inventory ✓");
+    } catch {
+      setOnboardMsg("could not save");
+    }
+  }
+  function openInOrchestrator() {
+    if (!result?.spec) return;
+    const { nodes, edges } = buildGraph(result.spec);
+    const payload = { label: result.spec.id, format: result.format, tier: result.spec.tier, nodes, edges, trajectory: result.trajectory };
+    try {
+      localStorage.setItem(IMPORTED_WORKFLOW, JSON.stringify(payload));
+    } catch {
+      /* ignore */
+    }
+    window.location.assign("/orchestrator");
+  }
 
   const t = result?.trajectory;
 
@@ -304,6 +377,18 @@ export default function WorkbenchPage() {
                   </li>
                 ))}
               </ol>
+
+              {/* onboarding */}
+              {result.spec ? (
+                <div className="rounded-md border border-edge bg-ink/50 p-3">
+                  <div className="mb-2 text-[12px] text-fg">Onboard this governed workflow</div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button onClick={addToInventory} className="rounded-md border border-edge px-3 py-1.5 text-[12px] text-fg hover:bg-panel2">+ Add to Inventory</button>
+                    <button onClick={openInOrchestrator} className="rounded-md bg-brand px-3 py-1.5 text-[12px] font-semibold text-ink">Open in Orchestrator →</button>
+                    {onboardMsg ? <span className="text-[12px] text-ok">{onboardMsg}</span> : null}
+                  </div>
+                </div>
+              ) : null}
             </div>
           ) : null}
         </section>

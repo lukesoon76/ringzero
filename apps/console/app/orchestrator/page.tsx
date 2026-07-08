@@ -14,7 +14,7 @@ import {
   type NodeProps,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 /* ---- types mirroring @ring-zero/policy orchestration output ---- */
 interface GuardEval {
@@ -89,10 +89,69 @@ const STATUS: Record<AgentStatus, { label: string; dot: string; text: string; st
 
 const chip = "inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-semibold";
 
+/* ---- imported-workflow onboarding (from the Import page) ---- */
+const IMPORTED_WORKFLOW = "regent-imported-workflow";
+type ImportedStep = Step & { fromNode: string; toNode: string };
+interface ImportedPayload {
+  label: string;
+  format: string;
+  tier: number;
+  nodes: { id: string; name: string; kind: string }[];
+  edges: { from: string; to: string }[];
+  trajectory: { terminal: { node: string; kind: string; detail: string }; steps: ImportedStep[] };
+}
+function thetaFor(tier: number) {
+  const m: Record<number, { a: number; c: number; cont: string }> = { 1: { a: 0.7, c: 0.6, cont: "Halt" }, 2: { a: 0.8, c: 0.7, cont: "Halt" }, 3: { a: 0.8, c: 0.7, cont: "Escalate" }, 4: { a: 0.9, c: 0.8, cont: "Escalate" } };
+  const t = m[tier] ?? m[3]!;
+  return { alignment: t.a, confidence: t.c, containment: t.cont, dualApproval: tier === 4, lengthBudget: tier === 4 ? 12 : 16 };
+}
+function importedManifest(p: ImportedPayload): PipelineManifest {
+  return {
+    id: "__imported__",
+    label: `Imported: ${p.label}`,
+    vertical: `${p.format} (imported)`,
+    scenarios: [{ id: "clean", label: "Governed dry-run" }],
+    agents: p.nodes.map((n) => ({ id: n.id, name: n.name, defaultTier: p.tier })),
+    nodes: p.nodes.map((n, i) => ({ id: n.id, name: n.name, kind: n.kind === "knowledge" ? "knowledge" : "agent", pos: { x: i * 245, y: (i % 2) * 130 }, defaultTier: p.tier })),
+    edges: p.edges.map((e) => ({ from: e.from, to: e.to, kind: "flow" as const })),
+  };
+}
+function synthesizeImported(p: ImportedPayload): OrchestrationResult {
+  const term = p.trajectory.terminal;
+  const reached = new Set<string>();
+  for (const s of p.trajectory.steps) { reached.add(s.fromNode); reached.add(s.toNode); }
+  const theta = thetaFor(p.tier);
+  const agents: AgentRun[] = p.nodes.map((n) => {
+    let status: AgentStatus;
+    if (n.id === term.node && term.kind !== "Complete") status = term.kind === "Escalate" ? "contained" : "blocked";
+    else if (reached.has(n.id)) status = "ok";
+    else status = "skipped";
+    return {
+      id: n.id, name: n.name, role: `imported ${n.kind}`, tier: p.tier, status,
+      terminalKind: status === "ok" ? "Complete" : term.kind,
+      rationale: status === "ok" ? "Governed pass (imported dry-run)." : `${term.kind} — ${term.detail}`,
+      cot: [`Imported ${p.format} node "${n.name}".`], cotAdvisory: true,
+      governanceNote: "Imported workflow — per-agent governance levers apply to curated pipelines; this is a governed dry-run.",
+      theta, steps: p.trajectory.steps.filter((s) => s.toNode === n.id || s.fromNode === n.id), emitted: {},
+    };
+  });
+  const released = term.kind === "Complete";
+  return { pipeline: "__imported__", scenario: "clean", agents, released, haltedAt: released ? null : term.node };
+}
+function readImported(): ImportedPayload | null {
+  try {
+    const raw = localStorage.getItem(IMPORTED_WORKFLOW);
+    return raw ? (JSON.parse(raw) as ImportedPayload) : null;
+  } catch {
+    return null;
+  }
+}
+
 interface AgentNodeData extends Record<string, unknown> {
   agent: AgentRun;
   killed: boolean;
   isSelected: boolean;
+  readOnly?: boolean;
   onTier: (id: string, t: number) => void;
   onKill: (id: string) => void;
   onSelect: (id: string) => void;
@@ -122,7 +181,7 @@ function GovernanceDial({ tier, disabled, onPick }: { tier: number; disabled: bo
 }
 
 function AgentFlowNode({ data, selected }: NodeProps<Node<AgentNodeData>>) {
-  const { agent, killed, onTier, onKill, onSelect } = data;
+  const { agent, killed, onTier, onKill, onSelect, readOnly } = data;
   const s = STATUS[agent.status];
   return (
     <div
@@ -143,18 +202,22 @@ function AgentFlowNode({ data, selected }: NodeProps<Node<AgentNodeData>>) {
           </svg>
         </span>
         <span className="min-w-0 flex-1 truncate text-[12.5px] font-semibold text-fg">{agent.name}</span>
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onKill(agent.id);
-          }}
-          className={`nodrag ${chip} border ${
-            killed ? "border-ok/50 bg-ok/10 text-ok" : "border-bad/50 bg-bad/10 text-bad hover:bg-bad/25"
-          }`}
-          title="Kill switch — halt this agent; contain everything downstream"
-        >
-          {killed ? "revive" : "⨯ kill"}
-        </button>
+        {readOnly ? (
+          <span className={`${chip} bg-ink text-muted`}>imported</span>
+        ) : (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onKill(agent.id);
+            }}
+            className={`nodrag ${chip} border ${
+              killed ? "border-ok/50 bg-ok/10 text-ok" : "border-bad/50 bg-bad/10 text-bad hover:bg-bad/25"
+            }`}
+            title="Kill switch — halt this agent; contain everything downstream"
+          >
+            {killed ? "revive" : "⨯ kill"}
+          </button>
+        )}
       </div>
 
       <div className="space-y-2 px-3 py-2.5">
@@ -166,7 +229,7 @@ function AgentFlowNode({ data, selected }: NodeProps<Node<AgentNodeData>>) {
 
         <div className="flex items-center justify-between gap-2 rounded-md bg-ink/60 px-2 py-1.5">
           <span className="text-[9px] font-semibold uppercase tracking-wide text-muted">Governance</span>
-          <GovernanceDial tier={agent.tier} disabled={killed} onPick={(t) => onTier(agent.id, t)} />
+          {readOnly ? <span className="text-[10px] text-muted">Tier {agent.tier} · read-only</span> : <GovernanceDial tier={agent.tier} disabled={killed} onPick={(t) => onTier(agent.id, t)} />}
         </div>
         <div className="flex flex-wrap gap-1 text-muted">
           <span className={`${chip} bg-ink`}>θ_A {agent.theta.alignment}</span>
@@ -228,14 +291,22 @@ export default function OrchestratorPage() {
 
   const current = manifest?.find((p) => p.id === pipeline);
 
-  // load the workflow manifest and initialise the first pipeline.
+  // load the workflow manifest and initialise the first pipeline. Guarded so
+  // StrictMode's dev double-invoke can't re-run applyPipeline (which would clobber
+  // a synchronously-set imported result).
+  const loadedRef = useRef(false);
   useEffect(() => {
+    if (loadedRef.current) return;
+    loadedRef.current = true;
     void (async () => {
       const res = await fetch("/api/orchestrate");
       const json = (await res.json()) as { pipelines: PipelineManifest[] };
-      setManifest(json.pipelines);
-      const first = json.pipelines[0];
-      if (first) applyPipeline(first);
+      const imported = readImported();
+      const pipelines = imported ? [...json.pipelines, importedManifest(imported)] : json.pipelines;
+      setManifest(pipelines);
+      // if the user just onboarded a workflow from Import, open it; else the first built-in.
+      const initial = imported ? pipelines[pipelines.length - 1] : pipelines[0];
+      if (initial) applyPipeline(initial);
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -256,6 +327,12 @@ export default function OrchestratorPage() {
 
   const run = useCallback(async () => {
     if (!pipeline) return;
+    // imported workflows are governed as a dry-run (synthesised from the stored trajectory)
+    if (pipeline === "__imported__") {
+      const p = readImported();
+      if (p) setResult(synthesizeImported(p));
+      return;
+    }
     setBusy(true);
     try {
       const res = await fetch("/api/orchestrate", {
@@ -302,7 +379,7 @@ export default function OrchestratorPage() {
             id: n.id,
             type: "agent",
             position,
-            data: { agent, killed: killed.includes(n.id), isSelected: n.id === selected, onTier, onKill, onSelect },
+            data: { agent, killed: killed.includes(n.id), isSelected: n.id === selected, readOnly: pipeline === "__imported__", onTier, onKill, onSelect },
           } as Node;
         })
         .filter((n): n is Node => n !== null),
@@ -338,7 +415,7 @@ export default function OrchestratorPage() {
         } as Edge;
       }),
     );
-  }, [result, current, selected, killed, onTier, onKill, onSelect, setNodes, setEdges]);
+  }, [result, current, pipeline, selected, killed, onTier, onKill, onSelect, setNodes, setEdges]);
 
   const reset = () => {
     if (current) applyPipeline(current);

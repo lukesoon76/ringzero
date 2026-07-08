@@ -72,9 +72,11 @@ const SOURCE_LABEL: Record<string, string> = {
   "sap-joule": "SAP Joule",
   "code-scan": "Code scan",
   "otel-egress": "OTel egress",
+  imported: "Imported",
 };
 const chip = "inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-semibold";
 const STORE_GOV = "regent-discovery-triage";
+const IMPORTED_AGENTS = "regent-imported-agents";
 
 function tier(r: RiskSignals) {
   const t = r.agency + r.authority + r.impact + r.exposure + r.recoverability;
@@ -100,9 +102,16 @@ export default function InventoryPage() {
     } catch {
       /* ignore */
     }
+    let imported: AgentManifest[] = [];
+    try {
+      const raw = localStorage.getItem(IMPORTED_AGENTS);
+      if (raw) imported = JSON.parse(raw) as AgentManifest[];
+    } catch {
+      /* ignore */
+    }
     void (async () => {
       const json = (await (await fetch("/api/inventory")).json()) as { agents: AgentManifest[]; models: ModelManifest[] };
-      setAgents(json.agents ?? []);
+      setAgents([...(json.agents ?? []), ...imported]);
       setModels(json.models ?? []);
       setSweptAt(new Date().toLocaleString());
       setLoading(false);
