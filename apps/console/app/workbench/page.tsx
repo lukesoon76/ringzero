@@ -30,6 +30,7 @@ interface RunResponse {
   released?: boolean;
   trajectory?: Trajectory;
   error?: string;
+  format?: string;
 }
 
 const HAPPY = {
@@ -94,18 +95,44 @@ const LANGGRAPH = {
   seed: { attrs: { Alignment: 1, Verified: 1, Confidence: 1, Length: 0, Information: 0.9 } },
 };
 
+// A CrewAI crew — Regent governs the imported crew as-is (external publish is contained).
+const CREWAI = {
+  name: "research-crew",
+  process: "sequential",
+  agents: [
+    { role: "Researcher", goal: "Gather sources", tools: ["web_search"] },
+    { role: "Writer", goal: "Draft the brief" },
+    { role: "Publisher", goal: "Publish", tools: ["publish_api"] },
+  ],
+  tasks: [
+    { description: "Research the topic", agent: "Researcher", tools: ["web_search"] },
+    { description: "Write the brief", agent: "Writer" },
+    { description: "Publish externally", agent: "Publisher", tools: ["publish_api"] },
+  ],
+};
+
 const TEMPLATES: Record<string, unknown> = {
-  "Credit memo — happy path": HAPPY,
+  "Regent spec — credit memo": HAPPY,
   "Attack — 26-month-stale data": withSeedData({ recencyMonths: 26 }),
   "Attack — double-counted EBITDA": withSeedData({
     _verify: { checks: [{ kind: "numeric", label: "coverage", claimed: 2.82, recomputed: 1.82, tolerance: 0.01 }] },
   }),
-  "LangGraph import — governed": LANGGRAPH,
+  "LangGraph import": LANGGRAPH,
+  "CrewAI import": CREWAI,
 };
 
-// A LangGraph spec routes to the adapter; a Regent workflow spec runs directly.
-function isLangGraph(o: unknown): boolean {
-  return typeof o === "object" && o !== null && "entrypoint" in o && "nodes" in o && "edges" in o;
+/** Client-side format sniff (mirrors the sdk importer) for the detection badge. */
+function detectFormat(text: string): string {
+  try {
+    const o = JSON.parse(text) as Record<string, unknown>;
+    if (Array.isArray(o.states) && Array.isArray(o.transitions)) return "Regent spec";
+    if (typeof o.entrypoint === "string" && Array.isArray(o.nodes) && Array.isArray(o.edges)) return "LangGraph";
+    if (Array.isArray(o.tasks) && Array.isArray(o.agents)) return "CrewAI";
+    if (typeof o.source === "string" && o.enforcement !== undefined && Array.isArray(o.nodes)) return "agent manifest";
+    return "unrecognised";
+  } catch {
+    return "invalid JSON";
+  }
 }
 
 const pill = (bg: string, fg: string) =>
@@ -120,13 +147,9 @@ export default function WorkbenchPage() {
     setBusy(true);
     setResult(null);
     try {
-      let endpoint = "/api/run";
-      try {
-        if (isLangGraph(JSON.parse(text))) endpoint = "/api/langgraph";
-      } catch {
-        /* fall through to /api/run, which reports the parse error */
-      }
-      const res = await fetch(endpoint, {
+      // Unified import: the server detects the format (Regent spec / LangGraph /
+      // CrewAI / agent manifest), compiles it, and runs a governed dry-run.
+      const res = await fetch("/api/import", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: text,
@@ -145,36 +168,63 @@ export default function WorkbenchPage() {
     setResult(null);
   }
 
+  function onFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      setText(String(reader.result ?? ""));
+      setResult(null);
+    };
+    reader.readAsText(file);
+    e.target.value = "";
+  }
+
+  const detected = detectFormat(text);
+
   const t = result?.trajectory;
 
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-lg font-bold text-fg">Workbench</h1>
-        <p className="text-[13px] text-muted">
-          Bring your own agentic workflow. Regent compiles it to a governed transition system and runs it under the
-          deterministic kernel — declarative guards only, no code on the binding path.
+        <h1 className="text-lg font-bold text-fg">Import Workflow</h1>
+        <p className="max-w-3xl text-[13px] text-muted">
+          Upload or paste any agentic workflow — a <span className="text-fg">Regent spec</span>,{" "}
+          <span className="text-fg">LangGraph</span> graph, <span className="text-fg">CrewAI</span> crew, or a discovered{" "}
+          <span className="text-fg">agent manifest</span>. Regent detects the format, normalises it to a governed transition
+          system, and runs it under the deterministic kernel — declarative structure only, no imported code on the binding path.
         </p>
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <section className="rounded-lg border border-edge bg-panel p-4">
-          <div className="mb-3 flex items-center justify-between gap-2">
-            <h2 className="text-xs font-semibold uppercase tracking-wider text-muted">Workflow spec</h2>
-            <select
-              onChange={(e) => loadTemplate(e.target.value)}
-              defaultValue=""
-              className="rounded-md border border-edge bg-ink px-2 py-1 text-[12px] text-fg"
-            >
-              <option value="" disabled>
-                load template…
-              </option>
-              {Object.keys(TEMPLATES).map((n) => (
-                <option key={n} value={n}>
-                  {n}
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <h2 className="text-xs font-semibold uppercase tracking-wider text-muted">Workflow</h2>
+              <span className={pill(detected === "unrecognised" || detected === "invalid JSON" ? "bg-bad/15" : "bg-ok/15", detected === "unrecognised" || detected === "invalid JSON" ? "text-bad" : "text-ok")}>
+                {detected}
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <label className="cursor-pointer rounded-md border border-edge bg-ink px-2 py-1 text-[12px] text-fg hover:bg-panel2">
+                ↑ upload file
+                <input type="file" accept=".json,.yaml,.yml,.txt" onChange={onFile} className="hidden" />
+              </label>
+              <select
+                onChange={(e) => loadTemplate(e.target.value)}
+                defaultValue=""
+                className="rounded-md border border-edge bg-ink px-2 py-1 text-[12px] text-fg"
+              >
+                <option value="" disabled>
+                  load template…
                 </option>
-              ))}
-            </select>
+                {Object.keys(TEMPLATES).map((n) => (
+                  <option key={n} value={n}>
+                    {n}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
           <textarea
             value={text}
@@ -213,6 +263,7 @@ export default function WorkbenchPage() {
                 <span className={result.released ? "text-bad" : "text-ok"}>
                   {result.released ? "released externally" : "no unauthorised release"}
                 </span>
+                {result.format ? <span className={pill("bg-fg/10", "text-fg")}>{result.format}</span> : null}
                 <span className="text-muted">· tier {t.tier}</span>
               </div>
               <p className="text-[12px] text-muted">{t.terminal.detail}</p>

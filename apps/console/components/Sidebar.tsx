@@ -101,7 +101,7 @@ const ICONS: Record<string, ReactNode> = {
 
 const NAV: Array<{ href: string; label: string; icon: keyof typeof ICONS }> = [
   { href: "/", label: "Dashboard", icon: "grid" },
-  { href: "/workbench", label: "Workbench", icon: "flask" },
+  { href: "/workbench", label: "Import", icon: "flask" },
   { href: "/orchestrator", label: "Orchestrator", icon: "graph" },
   { href: "/guardrails", label: "Guardrails", icon: "guard" },
   { href: "/oversight", label: "Oversight", icon: "inbox" },
