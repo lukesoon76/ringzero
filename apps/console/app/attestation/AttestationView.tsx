@@ -33,11 +33,56 @@ interface PortfolioRow {
   total: number;
   coveragePct: number;
 }
+type Verdict = "binding" | "unverified" | "shadow" | "gap";
+interface CombinedCell {
+  asset: string;
+  assetName: string;
+  assetClass: "agent" | "model";
+  controlId: string;
+  standard: string;
+  title: string;
+  severity: string;
+  status: string;
+  detail: string;
+  declared: boolean;
+  exercised: boolean;
+  verdict: Verdict;
+}
+interface StandardRollup {
+  standard: string;
+  applicable: number;
+  covered: number;
+  coveragePct: number;
+}
+interface Estate {
+  combined: CombinedCell[];
+  matrix: CombinedCell[];
+  byStandard: StandardRollup[];
+  gaps: CombinedCell[];
+  coveragePct: number;
+  assetCount: number;
+  verdicts: { binding: number; unverified: number; shadow: number; gap: number };
+}
+interface CatalogCol {
+  controlId: string;
+  standard: string;
+  title: string;
+  appliesTo: "agent" | "model" | "both";
+}
 interface Data {
   assets: Asset[];
   columns: Column[];
   portfolio: PortfolioRow[];
+  estate: Estate;
+  catalog: CatalogCol[];
 }
+
+const VERDICT: Record<Verdict, { cls: string; label: string }> = {
+  binding: { cls: "bg-ok/15 text-ok", label: "BINDING" },
+  unverified: { cls: "bg-warn/15 text-warn", label: "UNVERIFIED" },
+  shadow: { cls: "bg-link/15 text-link", label: "SHADOW" },
+  gap: { cls: "bg-bad/15 text-bad", label: "GAP" },
+};
 
 const chip = "inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-semibold";
 const covCls = (pct: number) => (pct >= 100 ? "bg-ok/15 text-ok" : pct > 0 ? "bg-warn/15 text-warn" : "bg-bad/15 text-bad");
@@ -71,6 +116,10 @@ export function AttestationView({ demoHtml }: { demoHtml: string | null }) {
         <p className="text-[13px] text-muted">Projecting attestation from the inventory…</p>
       ) : (
         <>
+          {/* estate attestation — declared × exercised */}
+          <EstateSection estate={data.estate} catalog={data.catalog} />
+
+          <h2 className="pt-2 text-xs font-semibold uppercase tracking-wider text-muted">Per-agent framework coverage (declared)</h2>
           {/* portfolio coverage */}
           <div className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-7">
             {data.portfolio.map((p) => (
@@ -156,6 +205,133 @@ export function AttestationView({ demoHtml }: { demoHtml: string | null }) {
           ) : null}
         </>
       )}
+    </div>
+  );
+}
+
+function EstateSection({ estate, catalog }: { estate: Estate; catalog: CatalogCol[] }) {
+  // unique assets in first-seen order, carrying their class
+  const assets: { id: string; name: string; cls: "agent" | "model" }[] = [];
+  const seen = new Set<string>();
+  for (const c of estate.combined) {
+    if (seen.has(c.asset)) continue;
+    seen.add(c.asset);
+    assets.push({ id: c.asset, name: c.assetName, cls: c.assetClass });
+  }
+  const cell = (assetId: string, controlId: string) =>
+    estate.combined.find((c) => c.asset === assetId && c.controlId === controlId);
+
+  const v = estate.verdicts;
+  const cards: { key: Verdict; n: number }[] = [
+    { key: "binding", n: v.binding },
+    { key: "unverified", n: v.unverified },
+    { key: "shadow", n: v.shadow },
+    { key: "gap", n: v.gap },
+  ];
+
+  return (
+    <div className="space-y-3">
+      <div>
+        <h2 className="text-sm font-semibold text-fg">Estate attestation — declared × exercised</h2>
+        <p className="max-w-3xl text-[12px] text-muted">
+          Every AI asset (agents <span className="text-fg">and</span> models) against the control catalogue, fusing two
+          honest axes: <span className="text-fg">declared</span> (a deterministic control is bound) and{" "}
+          <span className="text-fg">exercised</span> (the control actually fired in a compiled dry‑run).{" "}
+          <span className="text-ok">Binding</span> = declared ∧ exercised. <span className="text-warn">Unverified</span> =
+          declared ∧ ¬exercised. <span className="text-link">Shadow</span> = exercised ∧ ¬declared.{" "}
+          <span className="text-bad">Gap</span> = neither. Estate coverage{" "}
+          <span className="font-mono text-fg">{estate.coveragePct}%</span> over{" "}
+          <span className="font-mono text-fg">{estate.assetCount}</span> assets.
+        </p>
+      </div>
+
+      {/* verdict summary cards */}
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        {cards.map((c) => (
+          <div key={c.key} className="rounded-xl border border-edge bg-panel p-3">
+            <div className="flex items-center justify-between">
+              <span className={`${chip} ${VERDICT[c.key].cls}`}>{VERDICT[c.key].label}</span>
+              <span className="text-[18px] font-semibold tabular-nums text-fg">{c.n}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* estate matrix: asset × control */}
+      <div className="overflow-x-auto rounded-xl border border-edge">
+        <table className="w-full min-w-[900px] text-[12px]">
+          <thead className="bg-panel2 text-[10px] uppercase tracking-wide text-muted">
+            <tr>
+              <th className="px-3 py-2 text-left">Asset → control</th>
+              {catalog.map((c) => (
+                <th key={c.controlId} className="px-2 py-2 text-center" title={`${c.standard} — ${c.title}`}>
+                  <span className="font-mono">{c.controlId}</span>
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {assets.map((a) => (
+              <tr key={a.id} className="border-t border-edge">
+                <td className="px-3 py-2 text-fg">
+                  <span className={`${chip} mr-1.5 ${a.cls === "model" ? "bg-link/15 text-link" : "bg-edge/60 text-muted"}`}>{a.cls}</span>
+                  {a.name}
+                </td>
+                {catalog.map((c) => {
+                  const applies = c.appliesTo === "both" || c.appliesTo === a.cls;
+                  const cc = applies ? cell(a.id, c.controlId) : undefined;
+                  return (
+                    <td key={c.controlId} className="px-2 py-2 text-center">
+                      {!applies ? (
+                        <span className="text-muted">·</span>
+                      ) : cc ? (
+                        <span className={`${chip} ${VERDICT[cc.verdict].cls}`} title={cc.detail}>{VERDICT[cc.verdict].label}</span>
+                      ) : (
+                        <span className="text-muted">—</span>
+                      )}
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* per-standard rollup */}
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">
+        {estate.byStandard.map((s) => (
+          <div key={s.standard} className="rounded-xl border border-edge bg-panel p-3">
+            <div className="flex items-center justify-between text-[10px] text-muted">
+              <span className="font-mono text-fg">{s.standard}</span>
+              <span>{s.covered}/{s.applicable}</span>
+            </div>
+            <div className="mt-1.5 text-[15px] font-semibold tabular-nums text-fg">{s.coveragePct}%</div>
+            <div className="mt-1 h-1.5 rounded-sm bg-ink">
+              <div className={`h-1.5 rounded-sm ${s.coveragePct >= 100 ? "bg-ok" : s.coveragePct > 0 ? "bg-warn" : "bg-bad"}`} style={{ width: `${s.coveragePct}%` }} />
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* severity-ranked gaps */}
+      {estate.gaps.length > 0 ? (
+        <div className="rounded-xl border border-edge bg-panel">
+          <div className="border-b border-edge px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-muted">
+            Coverage gaps ({estate.gaps.length})
+          </div>
+          <ul className="divide-y divide-edge">
+            {estate.gaps.map((g, i) => (
+              <li key={`${g.asset}:${g.controlId}:${i}`} className="flex items-start gap-2 px-3 py-2 text-[12px]">
+                <span className={`${chip} ${VERDICT[g.verdict].cls}`}>{VERDICT[g.verdict].label}</span>
+                <span className="text-fg">{g.assetName}</span>
+                <span className="text-muted">— {g.standard}: {g.title}</span>
+                <span className="ml-auto text-[11px] text-muted">{g.detail}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
     </div>
   );
 }

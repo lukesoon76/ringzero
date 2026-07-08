@@ -365,6 +365,11 @@ const MODELS: readonly ModelManifest[] = [
     lifecycleStage: "deployed",
     riskSignals: { agency: 1, authority: 2, impact: 3, exposure: 2, recoverability: 2 },
     usedByAgents: ["aws-bedrock:loan-underwriter"],
+    accountability: { owner: "Model Risk (2LoD)", accountableOfficer: "Head of Model Risk", validator: "Model Validation (2LoD)" },
+    materialityTier: 3,
+    validation: { status: "validated", validatedBy: "Model Validation (2LoD)", lastValidatedAt: "2026-01-20", nextValidationDue: "2027-01-20", cadenceMonths: 12, findings: "None outstanding", satisfies: [{ framework: "sr-11-7", clause: "independent-validation" }, { framework: "mas-ai-rg", clause: "development" }] },
+    recency: { trainingDataCutoff: "2025-06-30", lastRetrainedAt: "2025-08-15", stalenessSlaMonths: 18, driftStatus: "stable" },
+    lastDiscoveredAt: SWEPT,
   },
   {
     id: "model:fraud-gbm",
@@ -379,6 +384,11 @@ const MODELS: readonly ModelManifest[] = [
     lifecycleStage: "deployed",
     riskSignals: { agency: 1, authority: 2, impact: 2, exposure: 2, recoverability: 1 },
     usedByAgents: ["azure:claims-triage"],
+    accountability: { owner: "Financial Crime", accountableOfficer: "Head of Financial Crime", validator: "Model Validation (2LoD)" },
+    materialityTier: 2,
+    validation: { status: "validated", validatedBy: "Model Validation (2LoD)", lastValidatedAt: "2025-11-10", nextValidationDue: "2026-11-10", cadenceMonths: 12, findings: "1 low: recalibration recommended (PSI rising)", satisfies: [{ framework: "sr-11-7", clause: "ongoing-monitoring" }, { framework: "mas-ai-rg", clause: "monitoring" }] },
+    recency: { trainingDataCutoff: "2025-03-31", lastRetrainedAt: "2025-05-01", stalenessSlaMonths: 12, driftStatus: "watch" },
+    lastDiscoveredAt: SWEPT,
   },
   {
     id: "model:claude-3-5-sonnet",
@@ -394,6 +404,12 @@ const MODELS: readonly ModelManifest[] = [
     thirdParty: { provider: "Anthropic (via AWS Bedrock)" },
     riskSignals: { agency: 2, authority: 1, impact: 2, exposure: 2, recoverability: 1 },
     usedByAgents: ["aws-bedrock:loan-underwriter", "code:langgraph-support"],
+    accountability: { owner: "AI Platform", accountableOfficer: "Head of AI Platform", validator: "Model Validation (2LoD)" },
+    materialityTier: 2,
+    validation: { status: "validated", validatedBy: "AI Platform + Model Validation (2LoD)", lastValidatedAt: "2026-02-01", nextValidationDue: "2026-08-01", cadenceMonths: 6, findings: "Vendor assurance on file (model card, SOC 2); use-case validation passed", satisfies: [{ framework: "mas-ai-rg", clause: "third-party" }, { framework: "mas-feat", clause: "accountability" }] },
+    // weights vendor-managed → no lastRetrainedAt; stalenessSla tracks OUR revalidation cadence
+    recency: { stalenessSlaMonths: 6, driftStatus: "not-monitored" },
+    lastDiscoveredAt: SWEPT,
   },
   {
     id: "model:gpt-4o",
@@ -409,6 +425,12 @@ const MODELS: readonly ModelManifest[] = [
     thirdParty: { provider: "OpenAI (via Microsoft Azure)" },
     riskSignals: { agency: 2, authority: 1, impact: 2, exposure: 2, recoverability: 1 },
     usedByAgents: ["azure:claims-triage"],
+    accountability: { owner: "AI Platform", accountableOfficer: "Head of AI Platform", validator: "Model Validation (2LoD)" },
+    materialityTier: 2,
+    // revalidation OVERDUE (nextValidationDue in the past) → surfaces a genuine attestation gap
+    validation: { status: "overdue", validatedBy: "AI Platform + Model Validation (2LoD)", lastValidatedAt: "2025-09-15", nextValidationDue: "2026-03-15", cadenceMonths: 6, findings: "Revalidation overdue since 2026-03-15; escalated to Model Risk Committee", satisfies: [{ framework: "mas-ai-rg", clause: "third-party" }, { framework: "sr-11-7", clause: "revalidation-cadence" }] },
+    recency: { stalenessSlaMonths: 6, driftStatus: "not-monitored" },
+    lastDiscoveredAt: SWEPT,
   },
 ];
 

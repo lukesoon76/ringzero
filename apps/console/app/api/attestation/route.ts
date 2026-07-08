@@ -1,5 +1,5 @@
 import { FRAMEWORK_LIBRARY } from "@ring-zero/policy";
-import { discoverAll, toAttestation, toPortfolioCoverage } from "@ring-zero/sdk";
+import { combineInventory, CONTROL_CATALOG, discoverAll, discoverModels, toAttestation, toPortfolioCoverage } from "@ring-zero/sdk";
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
@@ -25,5 +25,9 @@ export function GET(): NextResponse {
   const columns = FRAMEWORK_LIBRARY.filter((f) => present.has(f.id)).map((f) => ({ id: f.id, shortName: f.shortName }));
   const portfolio = toPortfolioCoverage(agents).map((p) => ({ ...p, shortName: label.get(p.framework) ?? p.framework }));
 
-  return NextResponse.json({ ok: true, assets, columns, portfolio });
+  // Estate attestation: agents + models, declared × exercised.
+  const estate = combineInventory(agents, discoverModels());
+  const catalog = CONTROL_CATALOG.map((c) => ({ controlId: c.controlId, standard: c.standard, title: c.title, appliesTo: c.appliesTo }));
+
+  return NextResponse.json({ ok: true, assets, columns, portfolio, estate, catalog });
 }

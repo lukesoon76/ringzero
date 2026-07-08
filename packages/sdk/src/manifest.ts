@@ -129,6 +129,25 @@ export interface OversightGate {
   readonly mode: "blocking" | "advisory";
 }
 
+/** Independent validation state (SR 11-7 effective challenge; MAS AIMRM). Distinct from lifecycleStage. */
+export interface ModelValidation {
+  readonly status: "validated" | "pending" | "overdue" | "not-validated" | "exempt";
+  readonly validatedBy?: string;
+  readonly lastValidatedAt?: string;
+  readonly nextValidationDue?: string;
+  readonly cadenceMonths?: number;
+  readonly findings?: string;
+  readonly satisfies?: readonly FrameworkMapping[];
+}
+
+/** Model recency / staleness — distinct from data recency. Drift is DETECTIVE only. */
+export interface ModelRecency {
+  readonly trainingDataCutoff?: string;
+  readonly lastRetrainedAt?: string;
+  readonly stalenessSlaMonths?: number;
+  readonly driftStatus?: "stable" | "watch" | "breach" | "not-monitored";
+}
+
 export interface AgentManifest {
   readonly id: string;
   readonly name: string;
@@ -186,6 +205,13 @@ export interface ModelManifest {
   readonly thirdParty?: ThirdParty;
   readonly riskSignals: RiskSignals;
   readonly usedByAgents: readonly string[];
+  /* --- SR 11-7 / MAS AIMRM model metadata (additive) --- */
+  readonly accountability?: Accountability;
+  readonly materialityTier?: MaterialityTier;
+  /** Independent validation state — separate from lifecycleStage (deployed can be overdue). */
+  readonly validation?: ModelValidation;
+  readonly recency?: ModelRecency;
+  readonly lastDiscoveredAt?: string;
 }
 
 /** A connector detects agents on one platform and normalises them to manifests. */
