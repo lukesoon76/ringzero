@@ -1,20 +1,25 @@
 "use client";
 
 import {
+  addEdge,
   Background,
   BackgroundVariant,
   Controls,
   Handle,
+  MarkerType,
   Position,
   ReactFlow,
+  ReactFlowProvider,
   useEdgesState,
   useNodesState,
+  useReactFlow,
+  type Connection,
   type Edge,
   type Node,
   type NodeProps,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from "react";
 
 /* ---- types mirroring @ring-zero/policy orchestration output ---- */
 interface GuardEval {
@@ -89,6 +94,66 @@ const STATUS: Record<AgentStatus, { label: string; dot: string; text: string; st
 
 const chip = "inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-semibold";
 
+/* ============================================================================
+ * Node library — the vocabulary you compose an agentic workflow from. Each type
+ * carries the governance Regent binds to it (that's the whole pitch: LangChain
+ * for building, Regent for governing).
+ * ========================================================================== */
+type NodeKind = "start" | "agent" | "validator" | "tool" | "knowledge" | "guard" | "approval" | "consolidator" | "end";
+
+interface CatalogEntry {
+  kind: NodeKind;
+  label: string;
+  blurb: string;
+  binds: string;
+  strength: "deterministic" | "advisory" | "gate" | "none";
+  group: "Flow" | "Capability" | "Governance";
+  tierable: boolean;
+}
+
+const NODE_CATALOG: CatalogEntry[] = [
+  { kind: "start", label: "Start", blurb: "Workflow entry point.", binds: "Trace root — run identity minted.", strength: "none", group: "Flow", tierable: false },
+  { kind: "agent", label: "Agent", blurb: "LLM agent — reasons and acts.", binds: "Tier-scaled guards: alignment, confidence, length budget.", strength: "advisory", group: "Flow", tierable: true },
+  { kind: "validator", label: "Validator", blurb: "Deterministic checker — Pass / Fail with justification.", binds: "Logical verifier — fail-closed on unverified.", strength: "deterministic", group: "Flow", tierable: true },
+  { kind: "consolidator", label: "Consolidator", blurb: "Aggregates upstream results into one output.", binds: "Numeric reconciliation verifier — no silent overrides.", strength: "deterministic", group: "Flow", tierable: false },
+  { kind: "end", label: "End", blurb: "Workflow exit / release point.", binds: "Release gate — attestation emitted from the run.", strength: "gate", group: "Flow", tierable: false },
+  { kind: "tool", label: "Tool", blurb: "External tool / API call.", binds: "Gateway mediation — default-deny least privilege.", strength: "deterministic", group: "Capability", tierable: false },
+  { kind: "knowledge", label: "Knowledge base", blurb: "Reference documents grounding decisions.", binds: "Provenance + staleness check on retrieved docs.", strength: "deterministic", group: "Capability", tierable: false },
+  { kind: "guard", label: "Guard", blurb: "Policy checkpoint between steps.", binds: "Deterministic gate — fail-closed on unknown state.", strength: "deterministic", group: "Governance", tierable: false },
+  { kind: "approval", label: "Human approval", blurb: "Authenticated oversight gate.", binds: "P8 — signed human decision required to proceed.", strength: "gate", group: "Governance", tierable: false },
+];
+const CATALOG_BY_KIND = Object.fromEntries(NODE_CATALOG.map((c) => [c.kind, c])) as Record<NodeKind, CatalogEntry>;
+const STRENGTH_CLS: Record<CatalogEntry["strength"], string> = {
+  deterministic: "bg-ok/15 text-ok",
+  advisory: "bg-warn/15 text-warn",
+  gate: "bg-link/15 text-link",
+  none: "bg-ink text-muted",
+};
+
+function KindIcon({ kind, size = 15 }: { kind: NodeKind; size?: number }) {
+  const p = { width: size, height: size, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.7, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
+  switch (kind) {
+    case "start":
+      return <svg {...p}><circle cx="12" cy="12" r="8" /><path d="M10 9l5 3-5 3z" fill="currentColor" /></svg>;
+    case "end":
+      return <svg {...p}><circle cx="12" cy="12" r="8" /><rect x="9" y="9" width="6" height="6" rx="1" fill="currentColor" /></svg>;
+    case "agent":
+      return <svg {...p}><rect x="4" y="8" width="16" height="11" rx="2" /><path d="M12 3v3M9 13h.01M15 13h.01" /></svg>;
+    case "validator":
+      return <svg {...p}><path d="M9 12l2 2 4-5" /><rect x="4" y="4" width="16" height="16" rx="3" /></svg>;
+    case "consolidator":
+      return <svg {...p}><path d="M4 6h16M7 12h10M10 18h4" /></svg>;
+    case "tool":
+      return <svg {...p}><path d="M14.7 6.3a4 4 0 00-5.4 5.4L4 17v3h3l5.3-5.3a4 4 0 005.4-5.4l-2.3 2.3-2-2z" /></svg>;
+    case "knowledge":
+      return <svg {...p}><ellipse cx="12" cy="5" rx="8" ry="3" /><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3" /></svg>;
+    case "guard":
+      return <svg {...p}><path d="M12 3l7 3v5c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z" /></svg>;
+    case "approval":
+      return <svg {...p}><circle cx="12" cy="8" r="3.5" /><path d="M5.5 20a6.5 6.5 0 0113 0" /></svg>;
+  }
+}
+
 /* ---- imported-workflow onboarding (from the Import page) ---- */
 const IMPORTED_WORKFLOW = "regent-imported-workflow";
 type ImportedStep = Step & { fromNode: string; toNode: string };
@@ -112,7 +177,7 @@ function importedManifest(p: ImportedPayload): PipelineManifest {
     vertical: `${p.format} (imported)`,
     scenarios: [{ id: "clean", label: "Governed dry-run" }],
     agents: p.nodes.map((n) => ({ id: n.id, name: n.name, defaultTier: p.tier })),
-    nodes: p.nodes.map((n, i) => ({ id: n.id, name: n.name, kind: n.kind === "knowledge" ? "knowledge" : "agent", pos: { x: i * 245, y: (i % 2) * 130 }, defaultTier: p.tier })),
+    nodes: p.nodes.map((n) => ({ id: n.id, name: n.name, kind: n.kind === "knowledge" ? "knowledge" : "agent", pos: { x: 0, y: 0 }, defaultTier: p.tier })),
     edges: p.edges.map((e) => ({ from: e.from, to: e.to, kind: "flow" as const })),
   };
 }
@@ -147,6 +212,80 @@ function readImported(): ImportedPayload | null {
   }
 }
 
+/* ============================================================================
+ * Top-down layered layout (Sugiyama-lite). Turns any DAG into the PwC-style
+ * vertical process flow: roots at the top, one layer per longest-path depth,
+ * knowledge bases sit as sidecars to the right of the layer they feed.
+ * ========================================================================== */
+const LAYER_H = 184;
+const NODE_W = 250;
+const GAP_X = 46;
+
+function layeredLayout(
+  ids: string[],
+  flow: { from: string; to: string }[],
+  ref: { from: string; to: string }[],
+): { pos: Record<string, { x: number; y: number }>; roots: string[]; leaves: string[]; maxDepth: number } {
+  const idset = new Set(ids);
+  const adj = new Map<string, string[]>();
+  const indeg = new Map<string, number>();
+  const outdeg = new Map<string, number>();
+  ids.forEach((id) => { adj.set(id, []); indeg.set(id, 0); outdeg.set(id, 0); });
+  flow.forEach((e) => {
+    if (!idset.has(e.from) || !idset.has(e.to)) return;
+    adj.get(e.from)!.push(e.to);
+    indeg.set(e.to, (indeg.get(e.to) ?? 0) + 1);
+    outdeg.set(e.from, (outdeg.get(e.from) ?? 0) + 1);
+  });
+  const depth = new Map<string, number>();
+  ids.forEach((id) => depth.set(id, 0));
+  const work = new Map(indeg);
+  const queue = ids.filter((id) => (work.get(id) ?? 0) === 0);
+  let guard = 0;
+  const cap = ids.length * ids.length + 16;
+  while (queue.length && guard++ < cap) {
+    const u = queue.shift()!;
+    for (const v of adj.get(u) ?? []) {
+      depth.set(v, Math.max(depth.get(v) ?? 0, (depth.get(u) ?? 0) + 1));
+      work.set(v, (work.get(v) ?? 1) - 1);
+      if ((work.get(v) ?? 0) === 0) queue.push(v);
+    }
+  }
+  // knowledge sidecars share their reference-target's depth, pushed to the right
+  const sidecars = new Set<string>();
+  ref.forEach((e) => {
+    if (idset.has(e.from) && idset.has(e.to)) {
+      depth.set(e.from, depth.get(e.to)!);
+      sidecars.add(e.from);
+    }
+  });
+  const layers = new Map<number, { main: string[]; side: string[] }>();
+  ids.forEach((id) => {
+    const d = depth.get(id) ?? 0;
+    if (!layers.has(d)) layers.set(d, { main: [], side: [] });
+    (sidecars.has(id) ? layers.get(d)!.side : layers.get(d)!.main).push(id);
+  });
+  const pos: Record<string, { x: number; y: number }> = {};
+  let maxDepth = 0;
+  [...layers.keys()].sort((a, b) => a - b).forEach((d) => {
+    maxDepth = Math.max(maxDepth, d);
+    const { main, side } = layers.get(d)!;
+    const row = [...main, ...side];
+    const total = row.length * NODE_W + (row.length - 1) * GAP_X;
+    let x = -total / 2;
+    row.forEach((id) => {
+      pos[id] = { x, y: d * LAYER_H };
+      x += NODE_W + GAP_X;
+    });
+  });
+  const roots = ids.filter((id) => !sidecars.has(id) && (indeg.get(id) ?? 0) === 0);
+  const leaves = ids.filter((id) => !sidecars.has(id) && (outdeg.get(id) ?? 0) === 0);
+  return { pos, roots, leaves, maxDepth };
+}
+
+/* ============================================================================
+ * Canvas node components (top-down: target=Top, source=Bottom)
+ * ========================================================================== */
 interface AgentNodeData extends Record<string, unknown> {
   agent: AgentRun;
   killed: boolean;
@@ -186,20 +325,17 @@ function AgentFlowNode({ data, selected }: NodeProps<Node<AgentNodeData>>) {
   return (
     <div
       onClick={() => onSelect(agent.id)}
-      className={`w-[252px] overflow-hidden rounded-xl border bg-panel shadow-[0_8px_30px_rgba(0,0,0,0.5)] transition ${
+      className={`w-[250px] overflow-hidden rounded-xl border bg-panel shadow-[0_8px_30px_rgba(0,0,0,0.5)] transition ${
         selected || data.isSelected ? "border-fg" : "border-edge hover:border-fg/40"
       }`}
     >
-      <Handle type="target" position={Position.Left} className="!top-[34px]" />
-      <Handle type="source" position={Position.Right} className="!top-[34px]" />
-      <Handle type="target" position={Position.Top} id="kb" className="!left-10" />
+      <Handle type="target" position={Position.Top} />
+      <Handle type="source" position={Position.Bottom} />
+      <Handle type="target" position={Position.Right} id="kb" className="!top-[34px]" />
 
       <div className={`flex items-center gap-2 border-b border-edge bg-panel2 px-3 py-2 border-t-2 ${s.accent}`}>
         <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-fg/10 text-fg">
-          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-            <rect x="4" y="8" width="16" height="11" rx="2" />
-            <path d="M12 3v3M9 13h.01M15 13h.01" />
-          </svg>
+          <KindIcon kind="agent" />
         </span>
         <span className="min-w-0 flex-1 truncate text-[12.5px] font-semibold text-fg">{agent.name}</span>
         {readOnly ? (
@@ -249,15 +385,12 @@ interface KnowledgeNodeData extends Record<string, unknown> {
 function KnowledgeNode({ data }: NodeProps<Node<KnowledgeNodeData>>) {
   return (
     <div className="w-[210px] overflow-hidden rounded-xl border border-edge bg-panel2 shadow-[0_8px_30px_rgba(0,0,0,0.5)]">
-      <Handle type="source" position={Position.Bottom} />
+      <Handle type="source" position={Position.Left} />
       <div className="flex items-center gap-2 border-b border-edge px-3 py-2">
         <span className="flex h-6 w-6 items-center justify-center rounded-md bg-fg/10 text-fg">
-          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-            <ellipse cx="12" cy="5" rx="8" ry="3" />
-            <path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3" />
-          </svg>
+          <KindIcon kind="knowledge" />
         </span>
-        <span className="text-[12px] font-semibold text-fg">Knowledge base</span>
+        <span className="text-[12px] font-semibold text-fg">{data.label || "Knowledge base"}</span>
       </div>
       <div className="px-3 py-2">
         <ul className="space-y-1 text-[10.5px] text-muted">
@@ -274,9 +407,106 @@ function KnowledgeNode({ data }: NodeProps<Node<KnowledgeNodeData>>) {
   );
 }
 
-const nodeTypes = { agent: AgentFlowNode, knowledge: KnowledgeNode };
+interface TerminalNodeData extends Record<string, unknown> {
+  label: string;
+  variant: "start" | "end";
+  released?: boolean;
+}
+function TerminalNode({ data }: NodeProps<Node<TerminalNodeData>>) {
+  const isStart = data.variant === "start";
+  const tone = isStart ? "border-fg/40 text-fg" : data.released === false ? "border-warn/50 text-warn" : "border-ok/50 text-ok";
+  return (
+    <div className={`grid h-[52px] w-[150px] place-items-center rounded-full border bg-panel px-4 text-center shadow-[0_8px_30px_rgba(0,0,0,0.5)] ${tone}`}>
+      {!isStart ? <Handle type="target" position={Position.Top} /> : null}
+      {isStart ? <Handle type="source" position={Position.Bottom} /> : null}
+      <div className="flex items-center gap-1.5">
+        <KindIcon kind={data.variant} size={14} />
+        <span className="text-[12px] font-semibold uppercase tracking-wide">{data.label}</span>
+      </div>
+    </div>
+  );
+}
+
+/* ---- builder node (editable; used only in "Build your own" mode) ---- */
+interface BuildNodeData extends Record<string, unknown> {
+  kind: NodeKind;
+  label: string;
+  tier: number;
+  planned?: "governed" | "gate" | null;
+  isSelected: boolean;
+  onRename: (id: string, v: string) => void;
+  onDelete: (id: string) => void;
+  onTier: (id: string, t: number) => void;
+  onSelect: (id: string) => void;
+}
+function BuildNode({ id, data, selected }: NodeProps<Node<BuildNodeData>>) {
+  const cat = CATALOG_BY_KIND[data.kind];
+  const terminal = data.kind === "start" || data.kind === "end";
+  return (
+    <div
+      onClick={() => data.onSelect(id)}
+      className={`w-[230px] overflow-hidden rounded-xl border bg-panel shadow-[0_8px_30px_rgba(0,0,0,0.5)] transition ${
+        selected || data.isSelected ? "border-fg" : "border-edge hover:border-fg/40"
+      }`}
+    >
+      {data.kind !== "start" ? <Handle type="target" position={Position.Top} /> : null}
+      {data.kind !== "end" ? <Handle type="source" position={Position.Bottom} /> : null}
+      <div className="flex items-center gap-2 border-b border-edge bg-panel2 px-2.5 py-1.5">
+        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-fg/10 text-fg">
+          <KindIcon kind={data.kind} />
+        </span>
+        <input
+          value={data.label}
+          onChange={(e) => data.onRename(id, e.target.value)}
+          onClick={(e) => e.stopPropagation()}
+          className="nodrag min-w-0 flex-1 truncate rounded bg-transparent text-[12.5px] font-semibold text-fg outline-none focus:bg-ink/60"
+        />
+        <button
+          onClick={(e) => { e.stopPropagation(); data.onDelete(id); }}
+          className="nodrag text-[13px] leading-none text-muted hover:text-bad"
+          title="Delete node"
+        >
+          ×
+        </button>
+      </div>
+      {!terminal ? (
+        <div className="space-y-1.5 px-2.5 py-2">
+          <span className={`${chip} ${STRENGTH_CLS[cat.strength]}`}>{cat.strength === "none" ? "trace" : cat.strength}</span>
+          <p className="text-[10.5px] leading-snug text-muted">{cat.binds}</p>
+          {cat.tierable ? (
+            <div className="flex items-center justify-between gap-2 rounded-md bg-ink/60 px-2 py-1">
+              <span className="text-[9px] font-semibold uppercase tracking-wide text-muted">Tier</span>
+              <GovernanceDial tier={data.tier} disabled={false} onPick={(t) => data.onTier(id, t)} />
+            </div>
+          ) : null}
+          {data.planned ? (
+            <span className={`${chip} ${data.planned === "gate" ? "bg-link/15 text-link" : "bg-ok/15 text-ok"}`}>
+              {data.planned === "gate" ? "⛨ gate planned" : "✓ governed"}
+            </span>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+const runNodeTypes = { agent: AgentFlowNode, knowledge: KnowledgeNode, terminal: TerminalNode };
+const buildNodeTypes = { build: BuildNode, terminal: TerminalNode };
+
+/* ============================================================================
+ * Page
+ * ========================================================================== */
+const BLANK_ID = "__blank__";
 
 export default function OrchestratorPage() {
+  return (
+    <ReactFlowProvider>
+      <OrchestratorInner />
+    </ReactFlowProvider>
+  );
+}
+
+function OrchestratorInner() {
   const [manifest, setManifest] = useState<PipelineManifest[] | null>(null);
   const [pipeline, setPipeline] = useState<string>("");
   const [tiers, setTiers] = useState<Record<string, number>>({});
@@ -285,15 +515,16 @@ export default function OrchestratorPage() {
   const [result, setResult] = useState<OrchestrationResult | null>(null);
   const [selected, setSelected] = useState<string>("");
   const [busy, setBusy] = useState(false);
+  const [buildPlan, setBuildPlan] = useState<{ ok: boolean; issues: string[]; nodes: number } | null>(null);
 
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
-  const [edges, setEdges] = useEdgesState<Edge>([]);
+  const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
+  const { screenToFlowPosition } = useReactFlow();
+  const seq = useRef(0);
 
+  const building = pipeline === BLANK_ID;
   const current = manifest?.find((p) => p.id === pipeline);
 
-  // load the workflow manifest and initialise the first pipeline. Guarded so
-  // StrictMode's dev double-invoke can't re-run applyPipeline (which would clobber
-  // a synchronously-set imported result).
   const loadedRef = useRef(false);
   useEffect(() => {
     if (loadedRef.current) return;
@@ -302,22 +533,46 @@ export default function OrchestratorPage() {
       const res = await fetch("/api/orchestrate");
       const json = (await res.json()) as { pipelines: PipelineManifest[] };
       const imported = readImported();
-      const pipelines = imported ? [...json.pipelines, importedManifest(imported)] : json.pipelines;
+      const blank: PipelineManifest = { id: BLANK_ID, label: "＋ Build your own", vertical: "custom workflow", scenarios: [{ id: "clean", label: "—" }], agents: [], nodes: [], edges: [] };
+      const pipelines = [...json.pipelines, ...(imported ? [importedManifest(imported)] : []), blank];
       setManifest(pipelines);
-      // if the user just onboarded a workflow from Import, open it; else the first built-in.
-      const initial = imported ? pipelines[pipelines.length - 1] : pipelines[0];
+      const initial = imported ? pipelines[pipelines.length - 2] : pipelines[0];
       if (initial) applyPipeline(initial);
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const onTier = useCallback((id: string, t: number) => setTiers((p) => ({ ...p, [id]: t })), []);
+  const onKill = useCallback((id: string) => setKilled((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id])), []);
+  const onSelect = useCallback((id: string) => setSelected(id), []);
+  const onRename = useCallback((id: string, v: string) => setNodes((ns) => ns.map((n) => (n.id === id ? { ...n, data: { ...n.data, label: v } } : n))), [setNodes]);
+  const onDelete = useCallback((id: string) => {
+    setNodes((ns) => ns.filter((n) => n.id !== id));
+    setEdges((es) => es.filter((e) => e.source !== id && e.target !== id));
+  }, [setNodes, setEdges]);
+  const onBuildTier = useCallback((id: string, t: number) => setNodes((ns) => ns.map((n) => (n.id === id ? { ...n, data: { ...n.data, tier: t } } : n))), [setNodes]);
 
   const applyPipeline = (p: PipelineManifest) => {
     setPipeline(p.id);
     setTiers(Object.fromEntries(p.agents.map((a) => [a.id, a.defaultTier])));
     setKilled([]);
     setScenario("clean");
-    setSelected(p.agents[Math.min(2, p.agents.length - 1)]?.id ?? "");
+    setBuildPlan(null);
     setResult(null);
+    if (p.id === BLANK_ID) {
+      // seed a blank canvas with just Start + End terminals
+      seq.current = 0;
+      setSelected("");
+      setNodes([
+        { id: "start", type: "terminal", position: { x: 0, y: 0 }, data: { label: "Start", variant: "start" } } as Node,
+        { id: "end", type: "terminal", position: { x: 0, y: LAYER_H * 3 }, data: { label: "End", variant: "end" } } as Node,
+      ]);
+      setEdges([]);
+    } else {
+      setSelected(p.agents[Math.min(2, p.agents.length - 1)]?.id ?? "");
+      setNodes([]);
+      setEdges([]);
+    }
   };
 
   const key = useMemo(
@@ -326,8 +581,7 @@ export default function OrchestratorPage() {
   );
 
   const run = useCallback(async () => {
-    if (!pipeline) return;
-    // imported workflows are governed as a dry-run (synthesised from the stored trajectory)
+    if (!pipeline || building) return;
     if (pipeline === "__imported__") {
       const p = readImported();
       if (p) setResult(synthesizeImported(p));
@@ -346,30 +600,31 @@ export default function OrchestratorPage() {
       setBusy(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key]);
+  }, [key, building]);
 
   useEffect(() => {
     void run();
   }, [run]);
 
-  const onTier = useCallback((id: string, t: number) => setTiers((p) => ({ ...p, [id]: t })), []);
-  const onKill = useCallback((id: string) => setKilled((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id])), []);
-  const onSelect = useCallback((id: string) => setSelected(id), []);
-
-  // sync React Flow nodes/edges from the manifest topology + governed result,
-  // preserving dragged positions. Handles fan-out / fan-in DAGs and a KB node.
+  // Sync canvas from the governed result (curated / imported pipelines only).
+  // In build mode the canvas is user-owned, so bail out and leave it alone.
   useEffect(() => {
+    if (building) return;
     if (!result || !current) {
       setNodes([]);
       setEdges([]);
       return;
     }
+    const flowPairs = current.edges.filter((e) => e.kind === "flow").map((e) => ({ from: e.from, to: e.to }));
+    const refPairs = current.edges.filter((e) => e.kind === "reference").map((e) => ({ from: e.from, to: e.to }));
+    const { pos, roots, leaves, maxDepth } = layeredLayout(current.nodes.map((n) => n.id), flowPairs, refPairs);
     const byId = Object.fromEntries(result.agents.map((a) => [a.id, a]));
-    setNodes((prev) =>
-      current.nodes
+
+    setNodes((prev) => {
+      const flowNodes = current.nodes
         .map((n) => {
           const ex = prev.find((p) => p.id === n.id);
-          const position = ex?.position ?? n.pos;
+          const position = ex?.position ?? pos[n.id] ?? n.pos;
           if (n.kind === "knowledge") {
             return { id: n.id, type: "knowledge", position, data: { label: n.name, documents: n.documents ?? [] } } as Node;
           }
@@ -382,40 +637,115 @@ export default function OrchestratorPage() {
             data: { agent, killed: killed.includes(n.id), isSelected: n.id === selected, readOnly: pipeline === "__imported__", onTier, onKill, onSelect },
           } as Node;
         })
-        .filter((n): n is Node => n !== null),
-    );
-    setEdges(
-      current.edges.map((e) => {
-        if (e.kind === "reference") {
-          return {
-            id: `${e.from}->${e.to}:ref`,
-            source: e.from,
-            target: e.to,
-            targetHandle: "kb",
-            animated: false,
-            label: "reference",
-            labelStyle: { fill: "#8a8a90", fontSize: 10 },
-            labelBgStyle: { fill: "#0a0a0b" },
-            style: { stroke: "#3a3a3e", strokeWidth: 1.25, strokeDasharray: "3 3" },
-          } as Edge;
-        }
-        const src = byId[e.from];
-        const passed = src?.status === "ok";
-        const stroke = src ? STATUS[src.status].stroke : "#3a3a3e";
-        const keys = src ? Object.keys(src.emitted) : [];
+        .filter((n): n is Node => n !== null);
+      // inject Start / End terminals top and bottom
+      const startEx = prev.find((p) => p.id === "__start__");
+      const endEx = prev.find((p) => p.id === "__end__");
+      flowNodes.push(
+        { id: "__start__", type: "terminal", position: startEx?.position ?? { x: 0, y: -LAYER_H }, data: { label: "Start", variant: "start" } } as Node,
+        { id: "__end__", type: "terminal", position: endEx?.position ?? { x: 0, y: (maxDepth + 1) * LAYER_H }, data: { label: result.released ? "Released" : "Contained", variant: "end", released: result.released } } as Node,
+      );
+      return flowNodes;
+    });
+
+    const flowEdges: Edge[] = current.edges.map((e) => {
+      if (e.kind === "reference") {
         return {
-          id: `${e.from}->${e.to}`,
+          id: `${e.from}->${e.to}:ref`,
           source: e.from,
           target: e.to,
-          animated: passed,
-          label: passed && keys.length ? keys.join(" · ") : src && src.status !== "ok" ? "contained" : "",
+          targetHandle: "kb",
+          animated: false,
+          label: "reference",
           labelStyle: { fill: "#8a8a90", fontSize: 10 },
           labelBgStyle: { fill: "#0a0a0b" },
-          style: { stroke, strokeWidth: 1.5, strokeDasharray: passed ? undefined : "4 3" },
+          style: { stroke: "#3a3a3e", strokeWidth: 1.25, strokeDasharray: "3 3" },
         } as Edge;
+      }
+      const src = byId[e.from];
+      const passed = src?.status === "ok";
+      const stroke = src ? STATUS[src.status].stroke : "#3a3a3e";
+      const keys = src ? Object.keys(src.emitted) : [];
+      return {
+        id: `${e.from}->${e.to}`,
+        source: e.from,
+        target: e.to,
+        animated: passed,
+        markerEnd: { type: MarkerType.ArrowClosed, color: stroke, width: 16, height: 16 },
+        label: passed && keys.length ? keys.join(" · ") : src && src.status !== "ok" ? "contained" : "",
+        labelStyle: { fill: "#8a8a90", fontSize: 10 },
+        labelBgStyle: { fill: "#0a0a0b" },
+        style: { stroke, strokeWidth: 1.5, strokeDasharray: passed ? undefined : "4 3" },
+      } as Edge;
+    });
+    roots.forEach((r) => flowEdges.push({ id: `__start__->${r}`, source: "__start__", target: r, markerEnd: { type: MarkerType.ArrowClosed, color: "#5a5a5e", width: 16, height: 16 }, style: { stroke: "#5a5a5e", strokeWidth: 1.5 } } as Edge));
+    leaves.forEach((l) => {
+      const passed = byId[l]?.status === "ok";
+      flowEdges.push({ id: `${l}->__end__`, source: l, target: "__end__", animated: passed, markerEnd: { type: MarkerType.ArrowClosed, color: passed ? "#d6d6d8" : "#5a5a5e", width: 16, height: 16 }, style: { stroke: passed ? "#d6d6d8" : "#5a5a5e", strokeWidth: 1.5, strokeDasharray: passed ? undefined : "4 3" } } as Edge);
+    });
+    setEdges(flowEdges);
+  }, [result, current, pipeline, selected, killed, building, onTier, onKill, onSelect, setNodes, setEdges]);
+
+  // keep build-node data callbacks / selection fresh
+  useEffect(() => {
+    if (!building) return;
+    setNodes((ns) => ns.map((n) => (n.type === "build" ? { ...n, data: { ...n.data, isSelected: n.id === selected, onRename, onDelete, onTier: onBuildTier, onSelect } } : n)));
+  }, [building, selected, onRename, onDelete, onBuildTier, onSelect, setNodes]);
+
+  /* ---- build-mode canvas interactions ---- */
+  const onConnect = useCallback(
+    (c: Connection) => setEdges((es) => addEdge({ ...c, markerEnd: { type: MarkerType.ArrowClosed, color: "#7a7a80", width: 16, height: 16 }, style: { stroke: "#7a7a80", strokeWidth: 1.5 } }, es)),
+    [setEdges],
+  );
+  const onDragOver = useCallback((e: DragEvent) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; }, []);
+  const onDrop = useCallback(
+    (e: DragEvent) => {
+      e.preventDefault();
+      if (!building) return;
+      const kind = e.dataTransfer.getData("application/regent-node") as NodeKind;
+      if (!kind || !CATALOG_BY_KIND[kind]) return;
+      const position = screenToFlowPosition({ x: e.clientX, y: e.clientY });
+      const cat = CATALOG_BY_KIND[kind];
+      if (kind === "start" || kind === "end") {
+        const nid = kind;
+        setNodes((ns) => (ns.some((n) => n.id === nid) ? ns : [...ns, { id: nid, type: "terminal", position, data: { label: cat.label, variant: kind } } as Node]));
+        return;
+      }
+      const id = `n${++seq.current}`;
+      setNodes((ns) => [
+        ...ns,
+        { id, type: "build", position, data: { kind, label: cat.label, tier: cat.tierable ? 3 : 0, planned: null, isSelected: false, onRename, onDelete, onTier: onBuildTier, onSelect } } as Node,
+      ]);
+      setBuildPlan(null);
+    },
+    [building, screenToFlowPosition, setNodes, onRename, onDelete, onBuildTier, onSelect],
+  );
+
+  // "Govern ▶" for the built graph: deterministic structural governance PLAN
+  // (not a kernel run — labelled as such). Marks each node with the control it
+  // would bind, and validates the topology (reachability, terminals).
+  const governBuild = useCallback(() => {
+    const buildNodes = nodes.filter((n) => n.type === "build");
+    const hasStart = nodes.some((n) => n.type === "terminal" && (n.data as TerminalNodeData).variant === "start");
+    const hasEnd = nodes.some((n) => n.type === "terminal" && (n.data as TerminalNodeData).variant === "end");
+    const targeted = new Set(edges.map((e) => e.target));
+    const sourced = new Set(edges.map((e) => e.source));
+    const issues: string[] = [];
+    if (!hasStart) issues.push("No Start node — add a workflow entry point.");
+    if (!hasEnd) issues.push("No End node — add a release/exit point.");
+    buildNodes.forEach((n) => {
+      const d = n.data as BuildNodeData;
+      if (!targeted.has(n.id) && !sourced.has(n.id)) issues.push(`"${d.label}" is not connected.`);
+    });
+    setNodes((ns) =>
+      ns.map((n) => {
+        if (n.type !== "build") return n;
+        const cat = CATALOG_BY_KIND[(n.data as BuildNodeData).kind];
+        return { ...n, data: { ...n.data, planned: cat.strength === "gate" ? "gate" : cat.strength === "none" ? null : "governed" } };
       }),
     );
-  }, [result, current, pipeline, selected, killed, onTier, onKill, onSelect, setNodes, setEdges]);
+    setBuildPlan({ ok: issues.length === 0, issues, nodes: buildNodes.length });
+  }, [nodes, edges, setNodes]);
 
   const reset = () => {
     if (current) applyPipeline(current);
@@ -423,6 +753,7 @@ export default function OrchestratorPage() {
 
   const agents = result?.agents ?? [];
   const sel = agents.find((a) => a.id === selected) ?? agents[0];
+  const selBuild = building ? (nodes.find((n) => n.id === selected)?.data as BuildNodeData | undefined) : undefined;
 
   return (
     <div className="flex h-[calc(100vh-150px)] flex-col gap-3">
@@ -437,22 +768,29 @@ export default function OrchestratorPage() {
         setScenario={setScenario}
         reset={reset}
         busy={busy}
+        building={building}
+        onGovern={governBuild}
       />
 
       <div className="flex min-h-0 flex-1 gap-3">
-        <div className="relative min-w-0 flex-1 overflow-hidden rounded-xl border border-edge bg-ink">
+        <Palette building={building} />
+
+        <div className="relative min-w-0 flex-1 overflow-hidden rounded-xl border border-edge bg-ink" onDrop={onDrop} onDragOver={onDragOver}>
           <ReactFlow
             nodes={nodes}
             edges={edges}
-            nodeTypes={nodeTypes}
+            nodeTypes={building ? buildNodeTypes : runNodeTypes}
             onNodesChange={onNodesChange}
+            onEdgesChange={building ? onEdgesChange : undefined}
+            onConnect={building ? onConnect : undefined}
             colorMode="dark"
             fitView
             fitViewOptions={{ padding: 0.2 }}
-            nodesConnectable={false}
-            edgesFocusable={false}
+            nodesConnectable={building}
+            edgesFocusable={building}
+            deleteKeyCode={building ? ["Backspace", "Delete"] : null}
             proOptions={{ hideAttribution: true }}
-            minZoom={0.4}
+            minZoom={0.35}
             maxZoom={1.6}
           >
             <Background variant={BackgroundVariant.Dots} gap={22} size={1} color="#23232a" />
@@ -460,14 +798,77 @@ export default function OrchestratorPage() {
           </ReactFlow>
 
           <div className="pointer-events-none absolute left-3 top-3 z-10">
-            <GlobalPill result={result} />
+            {building ? <BuildPill plan={buildPlan} /> : <GlobalPill result={result} />}
           </div>
-          {agents.length === 0 ? (
+          {building && nodes.filter((n) => n.type === "build").length === 0 ? (
+            <div className="pointer-events-none absolute inset-0 grid place-items-center text-center text-[13px] text-muted">
+              <div>
+                <p className="text-fg">Drag node types from the library →</p>
+                <p className="mt-1">connect them top-down, then <span className="text-fg">Govern ▶</span> to bind controls.</p>
+              </div>
+            </div>
+          ) : null}
+          {!building && agents.length === 0 ? (
             <div className="absolute inset-0 grid place-items-center text-[13px] text-muted">Initialising governed run…</div>
           ) : null}
         </div>
 
-        <OutputPanel result={result} sel={sel} />
+        {building ? <BuildInspector sel={selBuild} plan={buildPlan} /> : <OutputPanel result={result} sel={sel} />}
+      </div>
+    </div>
+  );
+}
+
+/* ============================================================================
+ * Left node-library palette
+ * ========================================================================== */
+function Palette({ building }: { building: boolean }) {
+  const groups: CatalogEntry["group"][] = ["Flow", "Capability", "Governance"];
+  const onDragStart = (e: DragEvent, kind: NodeKind) => {
+    e.dataTransfer.setData("application/regent-node", kind);
+    e.dataTransfer.effectAllowed = "move";
+  };
+  return (
+    <div className="flex w-[210px] shrink-0 flex-col overflow-hidden rounded-xl border border-edge bg-panel">
+      <div className="border-b border-edge px-3 py-2.5">
+        <h2 className="text-[12px] font-semibold text-fg">Node library</h2>
+        <p className="mt-0.5 text-[10px] leading-snug text-muted">
+          {building ? "Drag a node onto the canvas." : "Switch to “＋ Build your own” to compose."}
+        </p>
+      </div>
+      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-2.5 py-3">
+        {groups.map((g) => (
+          <div key={g}>
+            <p className="mb-1 px-1 text-[9px] font-semibold uppercase tracking-wider text-muted">{g}</p>
+            <div className="space-y-1.5">
+              {NODE_CATALOG.filter((c) => c.group === g).map((c) => (
+                <div
+                  key={c.kind}
+                  draggable={building}
+                  onDragStart={(e) => onDragStart(e, c.kind)}
+                  title={c.blurb}
+                  className={`group rounded-lg border border-edge bg-panel2 px-2 py-1.5 transition ${
+                    building ? "cursor-grab hover:border-fg/40 active:cursor-grabbing" : "opacity-55"
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-fg/10 text-fg">
+                      <KindIcon kind={c.kind} />
+                    </span>
+                    <span className="min-w-0 flex-1 truncate text-[12px] font-semibold text-fg">{c.label}</span>
+                    <span className={`h-1.5 w-1.5 rounded-full ${c.strength === "deterministic" ? "bg-ok" : c.strength === "advisory" ? "bg-warn" : c.strength === "gate" ? "bg-link" : "bg-muted"}`} title={c.strength} />
+                  </div>
+                  <p className="mt-1 line-clamp-2 text-[10px] leading-snug text-muted">{c.blurb}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="border-t border-edge px-3 py-2 text-[10px] leading-snug text-muted">
+        <span className="inline-flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full bg-ok" /> deterministic</span>{" · "}
+        <span className="inline-flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full bg-warn" /> advisory</span>{" · "}
+        <span className="inline-flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full bg-link" /> gate</span>
       </div>
     </div>
   );
@@ -481,6 +882,8 @@ function StudioBar({
   setScenario,
   reset,
   busy,
+  building,
+  onGovern,
 }: {
   manifest: PipelineManifest[] | null;
   current?: PipelineManifest;
@@ -489,6 +892,8 @@ function StudioBar({
   setScenario: (s: string) => void;
   reset: () => void;
   busy: boolean;
+  building: boolean;
+  onGovern: () => void;
 }) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-edge bg-panel px-3 py-2">
@@ -510,22 +915,28 @@ function StudioBar({
           ))}
         </select>
         <span className="hidden text-[11px] text-muted sm:inline">{current?.vertical}</span>
-        <span className="ml-1 text-[11px] text-muted">{busy ? "· re-running…" : "· governed"}</span>
+        <span className="ml-1 text-[11px] text-muted">{building ? "· build mode" : busy ? "· re-running…" : "· governed"}</span>
       </div>
       <div className="flex items-center gap-2">
-        <select
-          value={scenario}
-          onChange={(e) => setScenario(e.target.value)}
-          className="rounded-lg border border-edge bg-ink px-2 py-1.5 text-[12px] text-fg"
-          title="Scenario"
-        >
-          {(current?.scenarios ?? [{ id: "clean", label: "Clean run" }]).map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.label}
-            </option>
-          ))}
-        </select>
-        <button onClick={reset} className="grid h-8 w-8 place-items-center rounded-lg border border-edge text-muted hover:text-fg" title="Reset governance">
+        {building ? (
+          <button onClick={onGovern} className="rounded-lg bg-brand px-3 py-1.5 text-[12px] font-semibold text-ink hover:opacity-90" title="Bind governance controls to the built workflow">
+            Govern ▶
+          </button>
+        ) : (
+          <select
+            value={scenario}
+            onChange={(e) => setScenario(e.target.value)}
+            className="rounded-lg border border-edge bg-ink px-2 py-1.5 text-[12px] text-fg"
+            title="Scenario"
+          >
+            {(current?.scenarios ?? [{ id: "clean", label: "Clean run" }]).map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.label}
+              </option>
+            ))}
+          </select>
+        )}
+        <button onClick={reset} className="grid h-8 w-8 place-items-center rounded-lg border border-edge text-muted hover:text-fg" title={building ? "Clear canvas" : "Reset governance"}>
           ⌫
         </button>
         <a href="/frameworks" className="grid h-8 w-8 place-items-center rounded-lg bg-brand text-ink" title="Governance frameworks">
@@ -551,6 +962,74 @@ function GlobalPill({ result }: { result: OrchestrationResult | null }) {
       <span className="text-[11px] text-fg">
         {released ? "Completed — all agents passed governance." : `Contained at ${result.haltedAt}. No release.`}
       </span>
+    </div>
+  );
+}
+
+function BuildPill({ plan }: { plan: { ok: boolean; issues: string[]; nodes: number } | null }) {
+  if (!plan) {
+    return (
+      <div className="flex items-center gap-2 rounded-lg border border-edge bg-panel/80 px-3 py-1.5 backdrop-blur">
+        <span className={`${chip} bg-ink text-muted`}>DRAFT</span>
+        <span className="text-[11px] text-fg">Compose a workflow — then Govern ▶.</span>
+      </div>
+    );
+  }
+  return (
+    <div className={`flex items-center gap-2 rounded-lg border px-3 py-1.5 backdrop-blur ${plan.ok ? "border-ok/40 bg-ok/10" : "border-warn/40 bg-warn/10"}`}>
+      <span className={`${chip} ${plan.ok ? "bg-ok/20 text-ok" : "bg-warn/20 text-warn"}`}>{plan.ok ? "GOVERNANCE BOUND" : `${plan.issues.length} ISSUE${plan.issues.length > 1 ? "S" : ""}`}</span>
+      <span className="text-[11px] text-fg">{plan.ok ? `${plan.nodes} nodes — controls bound to every step.` : "Resolve issues in the plan →"}</span>
+    </div>
+  );
+}
+
+function BuildInspector({ sel, plan }: { sel: BuildNodeData | undefined; plan: { ok: boolean; issues: string[]; nodes: number } | null }) {
+  return (
+    <div className="flex w-[360px] shrink-0 flex-col overflow-hidden rounded-xl border border-edge bg-panel">
+      <div className="flex items-center justify-between border-b border-edge px-4 py-2.5">
+        <h2 className="text-[12px] font-semibold text-fg">Governance plan</h2>
+        <span className="text-[10px] text-muted">deterministic · LLM-free</span>
+      </div>
+      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-3">
+        {sel ? (
+          <div className="rounded-lg border border-edge bg-panel2 px-3 py-2.5">
+            <div className="flex items-center gap-2">
+              <span className="flex h-6 w-6 items-center justify-center rounded-md bg-fg/10 text-fg"><KindIcon kind={sel.kind} /></span>
+              <span className="text-[12.5px] font-semibold text-fg">{sel.label}</span>
+              <span className={`${chip} ${STRENGTH_CLS[CATALOG_BY_KIND[sel.kind].strength]}`}>{CATALOG_BY_KIND[sel.kind].strength}</span>
+            </div>
+            <p className="mt-1.5 text-[11px] leading-snug text-muted">{CATALOG_BY_KIND[sel.kind].blurb}</p>
+            <p className="mt-1.5 text-[11px] leading-snug text-fg">Binds: <span className="text-muted">{CATALOG_BY_KIND[sel.kind].binds}</span></p>
+            {CATALOG_BY_KIND[sel.kind].tierable ? <p className="mt-1 text-[11px] text-muted">Enforcement intensity: <span className="text-fg">Tier {sel.tier}</span></p> : null}
+          </div>
+        ) : (
+          <p className="text-[12px] text-muted">Select a node to see the controls Regent binds to it.</p>
+        )}
+
+        {plan ? (
+          <div className="space-y-2 border-t border-edge pt-3">
+            <h3 className="text-[11px] font-semibold uppercase tracking-wide text-muted">Structural check</h3>
+            {plan.ok ? (
+              <p className="text-[11.5px] text-ok">✓ Valid topology — {plan.nodes} governed nodes, all connected, terminals present.</p>
+            ) : (
+              <ul className="space-y-1">
+                {plan.issues.map((iss, i) => (
+                  <li key={i} className="flex gap-2 text-[11.5px] text-warn">
+                    <span>▸</span>
+                    <span className="leading-snug">{iss}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <p className="text-[10px] leading-snug text-muted">
+              This is a governance <span className="text-fg">plan</span> — the controls each node type binds, checked deterministically. Curated pipelines execute through the real kernel; a saved custom workflow binds on run.
+            </p>
+          </div>
+        ) : null}
+      </div>
+      <div className="border-t border-edge px-4 py-2.5 text-[11px] text-muted">
+        Drag from the library, connect top-down, set each agent&rsquo;s tier, then Govern ▶.
+      </div>
     </div>
   );
 }
