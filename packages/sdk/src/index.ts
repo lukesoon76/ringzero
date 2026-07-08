@@ -20,6 +20,7 @@ export * from "./attestation.js";
 export * from "./crewai.js";
 export * from "./import-workflow.js";
 export * from "./inventory-attestation.js";
+export * from "./render-estate.js";
 
 export interface ToolInvocation {
   readonly capabilityId: string;
