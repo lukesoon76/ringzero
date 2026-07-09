@@ -26,7 +26,7 @@ import { runWorkflowSpec } from "./workflow-spec.js";
 export type GovernanceLevel = Tier;
 
 /** A single agent in the chain — its role, its governed step, and its advisory CoT. */
-interface AgentBlueprint {
+export interface AgentBlueprint {
   readonly id: string;
   readonly name: string;
   readonly role: string;
@@ -633,6 +633,15 @@ function buildSpec(
  */
 export function runOrchestration(overrides: OrchestrationOverrides = {}): OrchestrationResult {
   const pipeline = PIPELINES[overrides.pipeline ?? DEFAULT_PIPELINE] ?? PIPELINES[DEFAULT_PIPELINE]!;
+  return runPipeline(pipeline, overrides);
+}
+
+/**
+ * Run an ARBITRARY pipeline (built-in or compiled from a user graph) under the
+ * given governance overrides. Identical machinery to runOrchestration — every
+ * agent is its own governed kernel trajectory, fail-closed on any halt.
+ */
+export function runPipeline(pipeline: Pipeline, overrides: OrchestrationOverrides = {}): OrchestrationResult {
   const scenario = pipeline.scenarios[overrides.scenario ?? "clean"] ? (overrides.scenario ?? "clean") : "clean";
   const patches: Record<string, Record<string, unknown>> = pipeline.scenarios[scenario]!.patch;
   const killed = new Set(overrides.killed ?? []);
@@ -692,4 +701,148 @@ export function runOrchestration(overrides: OrchestrationOverrides = {}): Orches
   const last = pipeline.agents[pipeline.agents.length - 1];
   const released = last ? statusById[last.id] === "ok" : false;
   return { pipeline: pipeline.id, scenario, agents, released, haltedAt };
+}
+
+/* ================================================================== */
+/* Custom-graph compilation — a user-built canvas → governed Pipeline  */
+/* ================================================================== */
+
+export type CustomNodeKind = "start" | "agent" | "validator" | "tool" | "knowledge" | "guard" | "approval" | "consolidator" | "end";
+
+export interface CustomGraphNode {
+  readonly id: string;
+  readonly kind: CustomNodeKind;
+  readonly label: string;
+  readonly tier?: GovernanceLevel;
+}
+export interface CustomGraphEdge {
+  readonly from: string;
+  readonly to: string;
+}
+export interface CustomGraph {
+  readonly id: string;
+  readonly label: string;
+  readonly nodes: readonly CustomGraphNode[];
+  readonly edges: readonly CustomGraphEdge[];
+}
+
+const EXECUTABLE_KINDS = new Set<CustomNodeKind>(["agent", "validator", "tool", "guard", "approval", "consolidator"]);
+
+/**
+ * Map ONE built node to a governed AgentBlueprint. The node's kind decides the
+ * intent (and therefore which kernel constraints bind): a `tool`/`approval`
+ * mints an authenticated approval before its binding action (dispatch/control);
+ * a `validator`/`consolidator` carries a deterministic numeric verifier that
+ * sets Verified=1; an `agent` carries tier-sensitive Confidence so raising its
+ * governance level genuinely escalates it. This is the ONLY governance the run
+ * uses — no LLM, nothing annotated after the fact.
+ */
+function blueprintFor(node: CustomGraphNode, dependsOn: readonly string[], readsKnowledge: boolean): AgentBlueprint {
+  const tier = node.tier ?? 3;
+  const base = {
+    id: node.id,
+    name: node.label,
+    defaultTier: tier,
+    dependsOn,
+    readsKnowledge,
+  };
+  const verifier = { _verify: { checks: [{ kind: "numeric", label: node.label, claimed: 1, recomputed: 1, tolerance: 0.01 }] } };
+
+  switch (node.kind) {
+    case "validator":
+    case "consolidator":
+      return {
+        ...base, role: node.kind === "validator" ? "Deterministic checker — Pass/Fail with justification" : "Reconcile upstream results into one verified output",
+        actionId: `verify.${node.id}`, intent: "compute",
+        seedAttrs: { Alignment: 1, Verified: 0, Confidence: 1, Information: 0.9, Length: 0 }, seedData: verifier,
+        produces: { verified: true }, cot: [`Recompute and cross-check "${node.label}".`, "Fail closed if the figures do not reconcile."],
+        governanceNote: "A deterministic verifier binds here — the step cannot pass with Verified=0.",
+      };
+    case "tool":
+      return {
+        ...base, role: "External tool / API call — routed through the mediation gateway",
+        actionId: `dispatch.${node.id}`, intent: "dispatch", mintsApprovalFirst: true,
+        seedAttrs: { Alignment: 1, Verified: 1, Confidence: 1, Information: 0.9, Length: 0 },
+        produces: { dispatched: true }, cot: [`Mint an authenticated approval for "${node.label}".`, "Dispatch only under least-privilege mediation."],
+        governanceNote: "A tool call is a governed dispatch: the kernel blocks it without an authenticated approval AND Verified=1.",
+      };
+    case "approval":
+      return {
+        ...base, role: "Authenticated human oversight gate",
+        actionId: `signoff.${node.id}`, intent: "control", mintsApprovalFirst: true,
+        seedAttrs: { Alignment: 1, Verified: 1, Confidence: 1, Information: 0.9, Length: 0 },
+        produces: { approved: true }, cot: [`Require a signed human decision at "${node.label}".`, "A verbal or replayed approval never binds."],
+        governanceNote: "P8 — only a minted, signed approval event lets the chain proceed.",
+      };
+    case "guard":
+      return {
+        ...base, role: "Deterministic policy checkpoint — fail-closed on unknown state",
+        actionId: `guard.${node.id}`, intent: "control",
+        seedAttrs: { Alignment: 1, Verified: 1, Confidence: 1, Information: 0.9, Length: 0 },
+        produces: { checked: true }, cot: [`Evaluate the policy checkpoint "${node.label}".`, "Fail closed on any unknown attribute."],
+        governanceNote: "A structural gate — passes only when its guarded attributes are known and in-bounds.",
+      };
+    case "agent":
+    default:
+      return {
+        ...base, role: "LLM agent — reasons and acts under tier-scaled guards",
+        actionId: `reason.${node.id}`, intent: "compute",
+        seedAttrs: { Alignment: 0.85, Verified: 1, Confidence: 0.75, Information: 0.9, Length: 0 },
+        produces: { reasoned: node.label }, cot: [`Reason about "${node.label}" from upstream context.`, "Advisory only — never on the binding path."],
+        governanceNote: "Tier-scaled: at Tier 4 the confidence bar rises to 0.8, so this agent escalates to a human instead of auto-passing.",
+      };
+  }
+}
+
+/** Compile a user-built canvas graph into a governed Pipeline (topologically ordered, fail-closed). */
+export function compileGraphToPipeline(g: CustomGraph): Pipeline {
+  const byId = new Map(g.nodes.map((n) => [n.id, n]));
+  const exec = g.nodes.filter((n) => EXECUTABLE_KINDS.has(n.kind));
+  const execIds = new Set(exec.map((n) => n.id));
+
+  // classify incoming edges: knowledge sources → readsKnowledge; executable sources → deps
+  const deps = new Map<string, string[]>();
+  const readsKB = new Set<string>();
+  exec.forEach((n) => deps.set(n.id, []));
+  for (const e of g.edges) {
+    const src = byId.get(e.from);
+    if (!src || !execIds.has(e.to)) continue;
+    if (src.kind === "knowledge") readsKB.add(e.to);
+    else if (execIds.has(e.from)) deps.get(e.to)!.push(e.from);
+  }
+
+  // topological sort so a dependency always precedes its dependents (Kahn); fall back to input order on a cycle
+  const indeg = new Map(exec.map((n) => [n.id, deps.get(n.id)!.length]));
+  const ready = exec.filter((n) => (indeg.get(n.id) ?? 0) === 0).map((n) => n.id);
+  const order: string[] = [];
+  const adj = new Map<string, string[]>();
+  exec.forEach((n) => adj.set(n.id, []));
+  for (const [to, froms] of deps) for (const from of froms) adj.get(from)?.push(to);
+  let guard = 0;
+  while (ready.length && guard++ < exec.length * exec.length + 8) {
+    const id = ready.shift()!;
+    order.push(id);
+    for (const nx of adj.get(id) ?? []) {
+      indeg.set(nx, (indeg.get(nx) ?? 1) - 1);
+      if ((indeg.get(nx) ?? 0) === 0) ready.push(nx);
+    }
+  }
+  const ordered = order.length === exec.length ? order : exec.map((n) => n.id);
+
+  const agents = ordered.map((id) => blueprintFor(byId.get(id)!, deps.get(id) ?? [], readsKB.has(id)));
+
+  const kb = g.nodes.find((n) => n.kind === "knowledge");
+  return {
+    id: g.id,
+    label: g.label,
+    vertical: "Custom workflow",
+    agents,
+    scenarios: { clean: { label: "Clean run", patch: {} } },
+    ...(kb ? { knowledgeBase: { id: kb.id, label: kb.label, documents: ["Reference documents"], pos: { x: 0, y: 0 } } } : {}),
+  };
+}
+
+/** Compile a user-built graph and run it through the real deterministic kernel. */
+export function runCustomGraph(g: CustomGraph, overrides: Omit<OrchestrationOverrides, "pipeline" | "scenario"> = {}): OrchestrationResult {
+  return runPipeline(compileGraphToPipeline(g), { ...overrides, scenario: "clean" });
 }

@@ -428,6 +428,13 @@ function TerminalNode({ data }: NodeProps<Node<TerminalNodeData>>) {
 }
 
 /* ---- builder node (editable; used only in "Build your own" mode) ---- */
+interface SnapNode {
+  id: string;
+  kind: NodeKind;
+  label: string;
+  tier: number;
+  pos: { x: number; y: number };
+}
 interface BuildNodeData extends Record<string, unknown> {
   kind: NodeKind;
   label: string;
@@ -516,6 +523,11 @@ function OrchestratorInner() {
   const [selected, setSelected] = useState<string>("");
   const [busy, setBusy] = useState(false);
   const [buildPlan, setBuildPlan] = useState<{ ok: boolean; issues: string[]; nodes: number } | null>(null);
+  const [customResult, setCustomResult] = useState<OrchestrationResult | null>(null);
+  const [buildSnapshot, setBuildSnapshot] = useState<SnapNode[] | null>(null);
+  const [customEdges, setCustomEdges] = useState<{ from: string; to: string }[]>([]);
+  const [customKilled, setCustomKilled] = useState<string[]>([]);
+  const [customBusy, setCustomBusy] = useState(false);
 
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
@@ -523,6 +535,7 @@ function OrchestratorInner() {
   const seq = useRef(0);
 
   const building = pipeline === BLANK_ID;
+  const governed = building && customResult !== null; // viewing a real kernel run of the built graph
   const current = manifest?.find((p) => p.id === pipeline);
 
   const loadedRef = useRef(false);
@@ -559,6 +572,9 @@ function OrchestratorInner() {
     setScenario("clean");
     setBuildPlan(null);
     setResult(null);
+    setCustomResult(null);
+    setBuildSnapshot(null);
+    setCustomKilled([]);
     if (p.id === BLANK_ID) {
       // seed a blank canvas with just Start + End terminals
       seq.current = 0;
@@ -686,11 +702,11 @@ function OrchestratorInner() {
     setEdges(flowEdges);
   }, [result, current, pipeline, selected, killed, building, onTier, onKill, onSelect, setNodes, setEdges]);
 
-  // keep build-node data callbacks / selection fresh
+  // keep build-node data callbacks / selection fresh (editable build mode only)
   useEffect(() => {
-    if (!building) return;
+    if (!building || customResult) return;
     setNodes((ns) => ns.map((n) => (n.type === "build" ? { ...n, data: { ...n.data, isSelected: n.id === selected, onRename, onDelete, onTier: onBuildTier, onSelect } } : n)));
-  }, [building, selected, onRename, onDelete, onBuildTier, onSelect, setNodes]);
+  }, [building, customResult, selected, onRename, onDelete, onBuildTier, onSelect, setNodes]);
 
   /* ---- build-mode canvas interactions ---- */
   const onConnect = useCallback(
@@ -701,7 +717,7 @@ function OrchestratorInner() {
   const onDrop = useCallback(
     (e: DragEvent) => {
       e.preventDefault();
-      if (!building) return;
+      if (!building || customResult) return;
       const kind = e.dataTransfer.getData("application/regent-node") as NodeKind;
       if (!kind || !CATALOG_BY_KIND[kind]) return;
       const position = screenToFlowPosition({ x: e.clientX, y: e.clientY });
@@ -718,12 +734,24 @@ function OrchestratorInner() {
       ]);
       setBuildPlan(null);
     },
-    [building, screenToFlowPosition, setNodes, onRename, onDelete, onBuildTier, onSelect],
+    [building, customResult, screenToFlowPosition, setNodes, onRename, onDelete, onBuildTier, onSelect],
   );
 
-  // "Govern ▶" for the built graph: deterministic structural governance PLAN
-  // (not a kernel run — labelled as such). Marks each node with the control it
-  // would bind, and validates the topology (reachability, terminals).
+  // Compile the built graph to a governed Pipeline server-side and run it through
+  // the REAL deterministic kernel (same machinery as the built-in pipelines).
+  const postCustom = useCallback(async (snap: SnapNode[], srcEdges: { from: string; to: string }[], killedList: string[]) => {
+    setCustomBusy(true);
+    try {
+      const graph = { id: "__custom__", label: "Custom workflow", nodes: snap.map(({ id, kind, label, tier }) => ({ id, kind, label, ...(tier ? { tier } : {}) })), edges: srcEdges };
+      const res = await fetch("/api/orchestrate/custom", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ graph, killed: killedList }) });
+      const json = (await res.json()) as { ok: boolean; result?: OrchestrationResult };
+      if (json.result) setCustomResult(json.result);
+    } finally {
+      setCustomBusy(false);
+    }
+  }, []);
+
+  // "Govern ▶": structural check, then (if valid) snapshot + run through the kernel.
   const governBuild = useCallback(() => {
     const buildNodes = nodes.filter((n) => n.type === "build");
     const hasStart = nodes.some((n) => n.type === "terminal" && (n.data as TerminalNodeData).variant === "start");
@@ -737,23 +765,93 @@ function OrchestratorInner() {
       const d = n.data as BuildNodeData;
       if (!targeted.has(n.id) && !sourced.has(n.id)) issues.push(`"${d.label}" is not connected.`);
     });
-    setNodes((ns) =>
-      ns.map((n) => {
-        if (n.type !== "build") return n;
-        const cat = CATALOG_BY_KIND[(n.data as BuildNodeData).kind];
-        return { ...n, data: { ...n.data, planned: cat.strength === "gate" ? "gate" : cat.strength === "none" ? null : "governed" } };
+    if (issues.length) {
+      setBuildPlan({ ok: false, issues, nodes: buildNodes.length });
+      setCustomResult(null);
+      return;
+    }
+    const snap: SnapNode[] = nodes
+      .filter((n) => n.type === "build" || n.type === "terminal")
+      .map((n) => {
+        if (n.type === "terminal") { const d = n.data as TerminalNodeData; return { id: n.id, kind: d.variant, label: d.label, tier: 0, pos: n.position }; }
+        const d = n.data as BuildNodeData; return { id: n.id, kind: d.kind, label: d.label, tier: d.tier, pos: n.position };
+      });
+    const srcEdges = edges.map((e) => ({ from: e.source, to: e.target }));
+    setBuildPlan({ ok: true, issues: [], nodes: buildNodes.length });
+    setBuildSnapshot(snap);
+    setCustomEdges(srcEdges);
+    setCustomKilled([]);
+    void postCustom(snap, srcEdges, []);
+  }, [nodes, edges, postCustom]);
+
+  // Live governance on the built graph: change a node's tier or kill it → re-run.
+  const rerunCustomTier = useCallback((id: string, t: number) => {
+    setBuildSnapshot((snap) => {
+      if (!snap) return snap;
+      const next = snap.map((n) => (n.id === id ? { ...n, tier: t } : n));
+      void postCustom(next, customEdges, customKilled);
+      return next;
+    });
+  }, [postCustom, customEdges, customKilled]);
+  const rerunCustomKill = useCallback((id: string) => {
+    setCustomKilled((k) => {
+      const next = k.includes(id) ? k.filter((x) => x !== id) : [...k, id];
+      if (buildSnapshot) void postCustom(buildSnapshot, customEdges, next);
+      return next;
+    });
+  }, [postCustom, buildSnapshot, customEdges]);
+
+  // Return to editing: rebuild the editable canvas from the snapshot.
+  const editBuild = useCallback(() => {
+    const snap = buildSnapshot;
+    setCustomResult(null);
+    setBuildPlan(null);
+    setCustomKilled([]);
+    if (!snap) return;
+    setNodes(snap.map((n) =>
+      n.kind === "start" || n.kind === "end"
+        ? ({ id: n.id, type: "terminal", position: n.pos, data: { label: n.label, variant: n.kind } } as Node)
+        : ({ id: n.id, type: "build", position: n.pos, data: { kind: n.kind, label: n.label, tier: n.tier, planned: null, isSelected: false, onRename, onDelete, onTier: onBuildTier, onSelect } } as Node),
+    ));
+    setEdges(customEdges.map((e) => ({ id: `${e.from}->${e.to}`, source: e.from, target: e.to, markerEnd: { type: MarkerType.ArrowClosed, color: "#7a7a80", width: 16, height: 16 }, style: { stroke: "#7a7a80", strokeWidth: 1.5 } } as Edge)));
+  }, [buildSnapshot, customEdges, onRename, onDelete, onBuildTier, onSelect, setNodes, setEdges]);
+
+  // Render the governed run of the built graph — governed nodes at the placed
+  // positions, statuses from the real kernel. Tier dial / kill re-run live.
+  useEffect(() => {
+    if (!governed || !buildSnapshot || !customResult) return;
+    const byId = Object.fromEntries(customResult.agents.map((a) => [a.id, a]));
+    const govNodes = buildSnapshot
+      .map((n) => {
+        if (n.kind === "start") return { id: n.id, type: "terminal", position: n.pos, data: { label: "Start", variant: "start" } } as Node;
+        if (n.kind === "end") return { id: n.id, type: "terminal", position: n.pos, data: { label: customResult.released ? "Released" : "Contained", variant: "end", released: customResult.released } } as Node;
+        if (n.kind === "knowledge") return { id: n.id, type: "knowledge", position: n.pos, data: { label: n.label, documents: ["Reference documents"] } } as Node;
+        const agent = byId[n.id];
+        if (!agent) return null;
+        return { id: n.id, type: "agent", position: n.pos, data: { agent, killed: customKilled.includes(n.id), isSelected: n.id === selected, readOnly: false, onTier: rerunCustomTier, onKill: rerunCustomKill, onSelect } } as Node;
+      })
+      .filter((n): n is Node => n !== null);
+    setNodes(govNodes);
+    setEdges(
+      customEdges.map((e) => {
+        const src = byId[e.from];
+        const passed = src?.status === "ok";
+        const terminalEdge = !src; // edge out of the Start terminal
+        const stroke = src ? STATUS[src.status].stroke : "#5a5a5e";
+        return { id: `${e.from}->${e.to}`, source: e.from, target: e.to, animated: passed, markerEnd: { type: MarkerType.ArrowClosed, color: stroke, width: 16, height: 16 }, style: { stroke, strokeWidth: 1.5, strokeDasharray: passed || terminalEdge ? undefined : "4 3" } } as Edge;
       }),
     );
-    setBuildPlan({ ok: issues.length === 0, issues, nodes: buildNodes.length });
-  }, [nodes, edges, setNodes]);
+  }, [governed, buildSnapshot, customResult, customEdges, customKilled, selected, rerunCustomTier, rerunCustomKill, onSelect, setNodes, setEdges]);
 
   const reset = () => {
     if (current) applyPipeline(current);
   };
 
-  const agents = result?.agents ?? [];
+  const activeResult = governed ? customResult : result;
+  const agents = activeResult?.agents ?? [];
   const sel = agents.find((a) => a.id === selected) ?? agents[0];
-  const selBuild = building ? (nodes.find((n) => n.id === selected)?.data as BuildNodeData | undefined) : undefined;
+  const selBuild = building && !governed ? (nodes.find((n) => n.id === selected)?.data as BuildNodeData | undefined) : undefined;
+  const editing = building && !governed;
 
   return (
     <div className="flex h-[calc(100vh-150px)] flex-col gap-3">
@@ -769,26 +867,29 @@ function OrchestratorInner() {
         reset={reset}
         busy={busy}
         building={building}
+        governed={governed}
+        customBusy={customBusy}
         onGovern={governBuild}
+        onEdit={editBuild}
       />
 
       <div className="flex min-h-0 flex-1 gap-3">
-        <Palette building={building} />
+        <Palette building={editing} />
 
         <div className="relative min-w-0 flex-1 overflow-hidden rounded-xl border border-edge bg-ink" onDrop={onDrop} onDragOver={onDragOver}>
           <ReactFlow
             nodes={nodes}
             edges={edges}
-            nodeTypes={building ? buildNodeTypes : runNodeTypes}
+            nodeTypes={editing ? buildNodeTypes : runNodeTypes}
             onNodesChange={onNodesChange}
-            onEdgesChange={building ? onEdgesChange : undefined}
-            onConnect={building ? onConnect : undefined}
+            onEdgesChange={editing ? onEdgesChange : undefined}
+            onConnect={editing ? onConnect : undefined}
             colorMode="dark"
             fitView
             fitViewOptions={{ padding: 0.2 }}
-            nodesConnectable={building}
-            edgesFocusable={building}
-            deleteKeyCode={building ? ["Backspace", "Delete"] : null}
+            nodesConnectable={editing}
+            edgesFocusable={editing}
+            deleteKeyCode={editing ? ["Backspace", "Delete"] : null}
             proOptions={{ hideAttribution: true }}
             minZoom={0.35}
             maxZoom={1.6}
@@ -798,13 +899,13 @@ function OrchestratorInner() {
           </ReactFlow>
 
           <div className="pointer-events-none absolute left-3 top-3 z-10">
-            {building ? <BuildPill plan={buildPlan} /> : <GlobalPill result={result} />}
+            {editing ? <BuildPill plan={buildPlan} busy={customBusy} /> : <GlobalPill result={activeResult} />}
           </div>
-          {building && nodes.filter((n) => n.type === "build").length === 0 ? (
+          {editing && nodes.filter((n) => n.type === "build").length === 0 ? (
             <div className="pointer-events-none absolute inset-0 grid place-items-center text-center text-[13px] text-muted">
               <div>
                 <p className="text-fg">Drag node types from the library →</p>
-                <p className="mt-1">connect them top-down, then <span className="text-fg">Govern ▶</span> to bind controls.</p>
+                <p className="mt-1">connect them top-down, then <span className="text-fg">Govern ▶</span> to run through the kernel.</p>
               </div>
             </div>
           ) : null}
@@ -813,7 +914,7 @@ function OrchestratorInner() {
           ) : null}
         </div>
 
-        {building ? <BuildInspector sel={selBuild} plan={buildPlan} /> : <OutputPanel result={result} sel={sel} />}
+        {editing ? <BuildInspector sel={selBuild} plan={buildPlan} /> : <OutputPanel result={activeResult} sel={sel} />}
       </div>
     </div>
   );
@@ -883,7 +984,10 @@ function StudioBar({
   reset,
   busy,
   building,
+  governed,
+  customBusy,
   onGovern,
+  onEdit,
 }: {
   manifest: PipelineManifest[] | null;
   current?: PipelineManifest;
@@ -893,7 +997,10 @@ function StudioBar({
   reset: () => void;
   busy: boolean;
   building: boolean;
+  governed: boolean;
+  customBusy: boolean;
   onGovern: () => void;
+  onEdit: () => void;
 }) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-edge bg-panel px-3 py-2">
@@ -915,12 +1022,16 @@ function StudioBar({
           ))}
         </select>
         <span className="hidden text-[11px] text-muted sm:inline">{current?.vertical}</span>
-        <span className="ml-1 text-[11px] text-muted">{building ? "· build mode" : busy ? "· re-running…" : "· governed"}</span>
+        <span className="ml-1 text-[11px] text-muted">{building ? (governed ? (customBusy ? "· re-running…" : "· governed run") : "· build mode") : busy ? "· re-running…" : "· governed"}</span>
       </div>
       <div className="flex items-center gap-2">
-        {building ? (
-          <button onClick={onGovern} className="rounded-lg bg-brand px-3 py-1.5 text-[12px] font-semibold text-ink hover:opacity-90" title="Bind governance controls to the built workflow">
-            Govern ▶
+        {building && governed ? (
+          <button onClick={onEdit} className="rounded-lg border border-edge px-3 py-1.5 text-[12px] font-semibold text-fg hover:border-fg/40" title="Return to editing the workflow">
+            ✎ Edit
+          </button>
+        ) : building ? (
+          <button onClick={onGovern} disabled={customBusy} className="rounded-lg bg-brand px-3 py-1.5 text-[12px] font-semibold text-ink hover:opacity-90 disabled:opacity-50" title="Compile the built workflow and run it through the kernel">
+            {customBusy ? "Running…" : "Govern ▶"}
           </button>
         ) : (
           <select
@@ -966,7 +1077,15 @@ function GlobalPill({ result }: { result: OrchestrationResult | null }) {
   );
 }
 
-function BuildPill({ plan }: { plan: { ok: boolean; issues: string[]; nodes: number } | null }) {
+function BuildPill({ plan, busy }: { plan: { ok: boolean; issues: string[]; nodes: number } | null; busy: boolean }) {
+  if (busy) {
+    return (
+      <div className="flex items-center gap-2 rounded-lg border border-fg/30 bg-panel/80 px-3 py-1.5 backdrop-blur">
+        <span className={`${chip} bg-fg/15 text-fg`}>RUNNING</span>
+        <span className="text-[11px] text-fg">Compiling the graph and running it through the kernel…</span>
+      </div>
+    );
+  }
   if (!plan) {
     return (
       <div className="flex items-center gap-2 rounded-lg border border-edge bg-panel/80 px-3 py-1.5 backdrop-blur">
@@ -975,10 +1094,11 @@ function BuildPill({ plan }: { plan: { ok: boolean; issues: string[]; nodes: num
       </div>
     );
   }
+  if (plan.ok) return null; // valid → the governed run replaces this with the global pill
   return (
-    <div className={`flex items-center gap-2 rounded-lg border px-3 py-1.5 backdrop-blur ${plan.ok ? "border-ok/40 bg-ok/10" : "border-warn/40 bg-warn/10"}`}>
-      <span className={`${chip} ${plan.ok ? "bg-ok/20 text-ok" : "bg-warn/20 text-warn"}`}>{plan.ok ? "GOVERNANCE BOUND" : `${plan.issues.length} ISSUE${plan.issues.length > 1 ? "S" : ""}`}</span>
-      <span className="text-[11px] text-fg">{plan.ok ? `${plan.nodes} nodes — controls bound to every step.` : "Resolve issues in the plan →"}</span>
+    <div className="flex items-center gap-2 rounded-lg border border-warn/40 bg-warn/10 px-3 py-1.5 backdrop-blur">
+      <span className={`${chip} bg-warn/20 text-warn`}>{`${plan.issues.length} ISSUE${plan.issues.length > 1 ? "S" : ""}`}</span>
+      <span className="text-[11px] text-fg">Resolve issues in the plan →</span>
     </div>
   );
 }
@@ -1022,7 +1142,7 @@ function BuildInspector({ sel, plan }: { sel: BuildNodeData | undefined; plan: {
               </ul>
             )}
             <p className="text-[10px] leading-snug text-muted">
-              This is a governance <span className="text-fg">plan</span> — the controls each node type binds, checked deterministically. Curated pipelines execute through the real kernel; a saved custom workflow binds on run.
+              <span className="text-fg">Govern ▶</span> compiles this graph to a governed pipeline and runs it through the same deterministic kernel as the built-in workflows — each node&rsquo;s intent decides which constraints bind.
             </p>
           </div>
         ) : null}
