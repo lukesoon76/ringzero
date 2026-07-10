@@ -28,7 +28,13 @@ export default function TracePage({
 
   const runId = searchParams.run ?? runs[0]!.runId;
   const detail = loadRun(runId);
-  const stepIdx = Number(searchParams.step ?? "0");
+  // Default to the DECISIVE step (where a guard blocked, else the terminal step)
+  // so the money-shot shows the instant a run is opened — no click required. An
+  // explicit ?step= always wins, so any step stays inspectable.
+  const decisiveIdx = detail
+    ? (detail.steps.find((s) => s.outcome === "blocked")?.index ?? detail.steps[detail.steps.length - 1]?.index ?? 0)
+    : 0;
+  const stepIdx = searchParams.step !== undefined ? Number(searchParams.step) : decisiveIdx;
   const step = detail?.steps.find((s) => s.index === stepIdx) ?? detail?.steps[0];
 
   return (

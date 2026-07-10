@@ -31,18 +31,19 @@ without approval. "Plausible. And wrong in five material ways."
 "5/5 blocked or contained. Deterministically. No LLM on the decision path."
 
 **1:30–2:30 — Prove it (console → Trace Viewer).** Open `/trace`, pick
-`gov-ebitda-double-count`, click the `verify` step. Show the guard decision:
-`Verified=0`, the exact discrepancy (`claimed=2.82 recomputed=1.82`), terminal
-`Escalate`. "Every decision is a guard `f: S×Θ→{0,1}`, evaluated LLM-free, and
-the prohibited transition — releasing from the drafted state — is structurally
-impossible, not merely flagged." Note the run is **auditable** and **replays
-exactly**.
+`gov-ebitda-double-count`. The decisive `verify` step is already selected, so the
+guard decision is right there: `Verified=0`, the exact discrepancy
+(`claimed=2.82 recomputed=1.82`), the fired `unverified-verify` guard, terminal
+`Escalate`. (Click any other step to show you can inspect the whole trajectory.)
+"Every decision is a guard `f: S×Θ→{0,1}`, evaluated LLM-free, and the prohibited
+transition — releasing from the drafted state — is structurally impossible, not
+merely flagged." Note the run is **auditable** and **replays exactly**.
 
 **2:30–3:00 — Attestation falls out (console → Attestation).** "One artifact,
 same evidence: every control resolves to a replayable trace event across EU AI
-Act, MAS, and Singapore MGF. Gaps are reported, never asserted." Then `/` for the
-pillar map: "We own the white space — P4, deterministic runtime enforcement —
-and everything else plugs into it."
+Act, MAS, and Singapore MGF. Gaps are reported, never asserted." Then `/coverage`
+for the pillar map: "We own the white space — P4, deterministic runtime
+enforcement — and everything else plugs into it."
 
 ## If asked "is the agent real?"
 Yes — thin by design. `RING_ZERO_LLM=1 ANTHROPIC_API_KEY=… pnpm demo` runs a live
