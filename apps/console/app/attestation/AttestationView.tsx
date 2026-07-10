@@ -55,10 +55,9 @@ interface StandardRollup {
   coveragePct: number;
 }
 interface Estate {
+  // only the fields the view consumes; `combined` carries the fused verdict.
   combined: CombinedCell[];
-  matrix: CombinedCell[];
   byStandard: StandardRollup[];
-  gaps: CombinedCell[];
   coveragePct: number;
   assetCount: number;
   verdicts: { binding: number; unverified: number; shadow: number; gap: number };
@@ -229,10 +228,30 @@ function EstateSection({ estate, catalog }: { estate: Estate; catalog: CatalogCo
     { key: "gap", n: v.gap },
   ];
 
+  // Non-binding cells from `combined` (which carry the fused `verdict`), severity-ranked.
+  // NB: estate.gaps inherits the declared-axis CoverageCell shape (status, no verdict).
+  const sevRank: Record<string, number> = { critical: 0, high: 1, medium: 2 };
+  const verdictRank: Record<Verdict, number> = { gap: 0, shadow: 1, unverified: 2, binding: 9 };
+  const gapCells = estate.combined
+    .filter((c) => c.verdict !== "binding")
+    .slice()
+    .sort((a, b) => verdictRank[a.verdict] - verdictRank[b.verdict] || (sevRank[a.severity] ?? 3) - (sevRank[b.severity] ?? 3) || a.asset.localeCompare(b.asset));
+
   return (
     <div className="space-y-3">
       <div>
-        <h2 className="text-sm font-semibold text-fg">Estate attestation — declared × exercised</h2>
+        <div className="flex items-start justify-between gap-3">
+          <h2 className="text-sm font-semibold text-fg">Estate attestation — declared × exercised</h2>
+          <a
+            href="/api/attestation?format=html"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="shrink-0 rounded-lg border border-edge px-2.5 py-1 text-[11px] font-semibold text-fg hover:border-fg/40"
+            title="Open the portable, print-to-PDF estate attestation (auditor artifact)"
+          >
+            ⎙ Export estate (PDF)
+          </a>
+        </div>
         <p className="max-w-3xl text-[12px] text-muted">
           Every AI asset (agents <span className="text-fg">and</span> models) against the control catalogue, fusing two
           honest axes: <span className="text-fg">declared</span> (a deterministic control is bound) and{" "}
@@ -314,14 +333,14 @@ function EstateSection({ estate, catalog }: { estate: Estate; catalog: CatalogCo
         ))}
       </div>
 
-      {/* severity-ranked gaps */}
-      {estate.gaps.length > 0 ? (
+      {/* severity-ranked non-binding cells */}
+      {gapCells.length > 0 ? (
         <div className="rounded-xl border border-edge bg-panel">
           <div className="border-b border-edge px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-muted">
-            Coverage gaps ({estate.gaps.length})
+            Open findings ({gapCells.length})
           </div>
           <ul className="divide-y divide-edge">
-            {estate.gaps.map((g, i) => (
+            {gapCells.map((g, i) => (
               <li key={`${g.asset}:${g.controlId}:${i}`} className="flex items-start gap-2 px-3 py-2 text-[12px]">
                 <span className={`${chip} ${VERDICT[g.verdict].cls}`}>{VERDICT[g.verdict].label}</span>
                 <span className="text-fg">{g.assetName}</span>

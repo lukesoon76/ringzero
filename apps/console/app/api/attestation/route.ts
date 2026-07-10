@@ -1,5 +1,5 @@
 import { FRAMEWORK_LIBRARY } from "@ring-zero/policy";
-import { combineInventory, CONTROL_CATALOG, discoverAll, discoverModels, toAttestation, toPortfolioCoverage } from "@ring-zero/sdk";
+import { combineInventory, CONTROL_CATALOG, discoverAll, discoverModels, renderEstateMatrixHtml, toAttestation, toPortfolioCoverage } from "@ring-zero/sdk";
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
@@ -10,8 +10,18 @@ export const dynamic = "force-dynamic";
  * bound controls → a per-framework coverage matrix (a clause is "attested" only if
  * a deterministic control covers it). Generated, not hand-maintained.
  */
-export function GET(): NextResponse {
+export function GET(req: Request): Response {
   const agents = discoverAll();
+
+  // ?format=html → the portable, print-to-PDF estate attestation (auditor artifact).
+  const url = new URL(req.url);
+  if (url.searchParams.get("format") === "html") {
+    const estateOnly = combineInventory(agents, discoverModels());
+    // relative base keeps the artifact portable (no host-specific links in the PDF)
+    const html = renderEstateMatrixHtml(estateOnly, { generatedAt: new Date().toISOString(), consoleBase: "/inventory" });
+    return new Response(html, { headers: { "content-type": "text/html; charset=utf-8" } });
+  }
+
   const label = new Map(FRAMEWORK_LIBRARY.map((f) => [f.id, f.shortName]));
 
   const assets = agents
