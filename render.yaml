@@ -1,0 +1,23 @@
+# Render Blueprint for the Regent console (pnpm monorepo + Next.js).
+# Deploy: Render dashboard → New → Blueprint → connect the ringzero repo → Apply.
+#
+# The console reads governed-run evidence from .telemetry/demo.db + attestation.json,
+# which `pnpm demo` produces — so the build runs the demo BEFORE next build. The
+# SQLite DB is read-only demo data, regenerated on every deploy (no persistent
+# disk needed).
+services:
+  - type: web
+    name: regent-console
+    runtime: node
+    plan: starter          # free/starter is fine for a demo; spins down when idle
+    branch: main
+    autoDeploy: true
+    buildCommand: >-
+      corepack enable &&
+      pnpm install --frozen-lockfile &&
+      pnpm demo &&
+      pnpm --filter @ring-zero/console build
+    startCommand: pnpm --filter @ring-zero/console exec next start -p $PORT
+    envVars:
+      - key: NODE_VERSION
+        value: "20.18.1"

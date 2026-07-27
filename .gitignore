@@ -27,6 +27,7 @@
 !/eslint.config.mjs
 !/vitest.config.ts
 !/otel-collector-config.yaml
+!/render.yaml
 !/packages/
 !/apps/
 !/docs/
