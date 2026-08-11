@@ -20,6 +20,7 @@ const awsBedrock: DiscoveryConnector = {
     {
       id: "aws-bedrock:loan-underwriter",
       name: "Loan Underwriting Agent",
+      autonomyLevel: 4,
       source: "aws-bedrock",
       externalRef: "arn:aws:bedrock:us-east-1:acct:agent/AGENT123",
       discoveredVia: "control-plane",
@@ -87,6 +88,7 @@ const azureAi: DiscoveryConnector = {
     {
       id: "azure:claims-triage",
       name: "Claims Triage Copilot",
+      autonomyLevel: 3,
       source: "azure-ai-agents",
       externalRef: "/subscriptions/…/agents/claims-triage",
       discoveredVia: "control-plane",
@@ -126,6 +128,7 @@ const azureAi: DiscoveryConnector = {
     {
       id: "azure:hr-copilot",
       name: "HR Policy Copilot",
+      autonomyLevel: 2,
       source: "azure-ai-agents",
       externalRef: "PowerPlatform:env/agents/hr-copilot",
       discoveredVia: "control-plane",
@@ -166,6 +169,7 @@ const salesforce: DiscoveryConnector = {
     {
       id: "sfdc:service-agent",
       name: "Service Agentforce Agent",
+      autonomyLevel: 4,
       source: "salesforce-agentforce",
       externalRef: "GenAiPlanner/Service_Agent",
       discoveredVia: "control-plane",
@@ -215,6 +219,7 @@ const sapJoule: DiscoveryConnector = {
     {
       id: "sap:procurement",
       name: "Procurement Joule Agent",
+      autonomyLevel: 4,
       source: "sap-joule",
       externalRef: "BTP:joule/procurement",
       discoveredVia: "control-plane",
@@ -261,6 +266,7 @@ const codeScan: DiscoveryConnector = {
     {
       id: "code:langgraph-support",
       name: "LangGraph Support Agent",
+      autonomyLevel: 3,
       source: "code-scan",
       externalRef: "repo:acme/support-bot · app/graph.py",
       discoveredVia: "code",

@@ -178,6 +178,8 @@ export interface AgentManifest {
   readonly accountability?: Accountability;
   /** Stored materiality outcome (not just derived from riskSignals). */
   readonly materialityTier?: MaterialityTier;
+  /** L1–L5 agent autonomy level (see @ring-zero/policy AUTONOMY_LEVELS). Drives the enforcement Regent requires. */
+  readonly autonomyLevel?: 1 | 2 | 3 | 4 | 5;
   /** Controls bound to this asset — the attestation source. */
   readonly controls?: readonly BoundControl[];
   /** Typed model refs (richer than the flat `models: string[]`, which stays for back-compat). */
