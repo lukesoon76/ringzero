@@ -194,6 +194,46 @@ export const FRAMEWORK_LIBRARY: readonly FrameworkPack[] = [
       { id: "notice", title: "Candidate notice", text: "Notify candidates that an automated tool will be used at least 10 business days in advance.", severity: "medium" },
     ],
   },
+  {
+    id: "frontier-ai-rmf",
+    name: "Frontier AI Risk Management Framework 2.0",
+    shortName: "Frontier AI RMF 2.0",
+    jurisdiction: "China",
+    authority: "Concordia AI + Shanghai AI Lab",
+    status: "Guidance",
+    effective: "2026 (v2.0)",
+    summary:
+      "Six core processes (identify, thresholds, analyse, evaluate, mitigate, govern) with 13 red-line scenarios across five domains. Names loss of oversight as the precondition for loss of control, and internal high-privilege deployment as a critical risk environment.",
+    tags: ["frontier", "agentic", "red-lines", "loss-of-control", "china"],
+    requirements: [
+      { id: "risk-identification", title: "Risk identification", text: "Identify risks across all applicable domains before and during deployment.", severity: "high" },
+      { id: "risk-thresholds", title: "Risk thresholds", text: "Define thresholds that trigger intervention or containment.", severity: "high" },
+      { id: "risk-analysis", title: "Risk analysis", text: "Analyse likelihood and impact per domain.", severity: "medium" },
+      { id: "risk-evaluation", title: "Risk evaluation", text: "Evaluate outputs against thresholds with deterministic checks, not judgement alone.", severity: "critical" },
+      { id: "risk-mitigation", title: "Risk mitigation & containment", text: "Bind mitigations and contain the trajectory on breach.", severity: "critical" },
+      { id: "risk-governance", title: "Risk governance & accountability", text: "Accountable human oversight with reproducible, replayable records.", severity: "high" },
+      { id: "red-lines", title: "Red-line scenarios", text: "Thirteen red-line scenarios across five domains that must never be crossed — structurally where possible.", severity: "critical" },
+      { id: "high-privilege-env", title: "High-privilege deployment control", text: "Treat internal high-privilege deployment as a critical risk environment; enforce least privilege and containment.", severity: "critical" },
+    ],
+  },
+  {
+    id: "gp-agent-l1-l5",
+    name: "L1–L5 Safety Framework for General-Purpose AI Agents",
+    shortName: "GP-Agent L1–L5",
+    jurisdiction: "China",
+    authority: "Concordia AI · Shanghai AI Lab · Tsinghua IAIR · Huawei",
+    status: "Guidance",
+    effective: "2026 (draft for comments)",
+    summary:
+      "Classifies general-purpose agents by autonomy (L1–L5), describes how risk evolves as autonomy increases, and prescribes safeguards proportionate to each level.",
+    tags: ["agentic", "autonomy", "safeguards", "L1-L5", "china"],
+    requirements: [
+      { id: "autonomy-classification", title: "Autonomy classification (L1–L5)", text: "Classify each agent by its level of autonomy.", severity: "high" },
+      { id: "level-matched-safeguards", title: "Level-matched safeguards", text: "Bind safeguards proportionate to the agent's autonomy level; higher autonomy demands stricter binding controls.", severity: "critical" },
+      { id: "loss-of-oversight", title: "Prevent loss of oversight", text: "Maintain effective human oversight — loss of oversight is the precondition for loss of control.", severity: "critical" },
+      { id: "high-autonomy-containment", title: "High-autonomy containment", text: "At L4/L5 bind containment and mandatory authenticated sign-off before any external effect.", severity: "critical" },
+    ],
+  },
 ];
 
 /** A portable, downloadable pack: the framework plus a provenance stamp. */

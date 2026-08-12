@@ -39,6 +39,7 @@ const JURISDICTIONS = [
   { id: "sg", label: "Singapore", frameworks: ["mas-feat", "mas-ai-rg", "mas-safr", "sg-mgf"] },
   { id: "eu", label: "European Union", frameworks: ["eu-ai-act", "iso-42001"] },
   { id: "us", label: "United States", frameworks: ["nist-ai-rmf", "colorado-sb21-169", "nyc-ll144"] },
+  { id: "cn", label: "China", frameworks: ["frontier-ai-rmf", "gp-agent-l1-l5"] },
   { id: "intl", label: "International", frameworks: ["iso-42001", "nist-ai-rmf"] },
 ];
 

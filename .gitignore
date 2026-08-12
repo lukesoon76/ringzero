@@ -45,6 +45,8 @@ __pycache__/
 .ruff_cache/
 .pytest_cache/
 coverage/
+# ...but NOT the console's /coverage app route (pillar-map surface); `coverage/` above is for test-coverage output only.
+!/apps/console/app/coverage/
 *.tsbuildinfo
 
 # 4. Local runtime data / telemetry / databases (never commit these).
