@@ -11,6 +11,7 @@
  * call. Advisory guardrail signals are surfaced but never decide the gate.
  */
 
+import { BudgetInterceptor, type BudgetConfig, type BudgetDecision } from "./budget-runtime.js";
 import { FinanceRuntimeInterceptor, type FinanceConfig, type FinanceDecision } from "./finance-runtime.js";
 import { runGuardrails, type GuardrailReport } from "./guardrails.js";
 
@@ -30,6 +31,9 @@ export interface McpToolCall {
   readonly operation?: string;
   readonly amount?: number;
   readonly riskProfileChange?: boolean;
+  /** Resource metering — tokens/cost this call consumes; drives the budget interceptor. */
+  readonly tokens?: number;
+  readonly costUsd?: number;
 }
 
 export interface McpDecision {
@@ -40,6 +44,8 @@ export interface McpDecision {
   readonly advisories: readonly string[];
   /** Present when the call carried financial semantics and the interceptor ran. */
   readonly finance?: FinanceDecision;
+  /** Present when a token/cost budget is configured and the interceptor ran. */
+  readonly budget?: BudgetDecision;
 }
 
 export interface McpGatewayConfig {
@@ -47,18 +53,23 @@ export interface McpGatewayConfig {
   readonly grantedScopes: readonly string[];
   /** When set, financial operations additionally run the Financial Runtime Interceptor. */
   readonly finance?: FinanceConfig;
+  /** When set, every call runs the token/cost Budget Interceptor (runaway-loop containment). */
+  readonly budget?: BudgetConfig;
 }
 
 export class RegentMcpGateway {
   private readonly finance?: FinanceRuntimeInterceptor;
+  private readonly budget?: BudgetInterceptor;
 
   constructor(private readonly config: McpGatewayConfig) {
     if (config.finance) this.finance = new FinanceRuntimeInterceptor(config.finance);
+    if (config.budget) this.budget = new BudgetInterceptor(config.budget);
   }
 
-  /** Reset the session-scoped state (cumulative financial exposure). */
+  /** Reset the session-scoped state (cumulative financial exposure + token/cost budget). */
   resetSession(): void {
     this.finance?.reset();
+    this.budget?.reset();
   }
 
   /** Mediate a single MCP tool call. Deterministic, fail-closed. */
@@ -81,18 +92,27 @@ export class RegentMcpGateway {
     if (missing.length) {
       return { permitted: false, intent: binding.intent, reasons: [`scope not granted: ${missing.join(", ")}`], guardrail, advisories };
     }
-    // (4) financial runtime controls (scope mandate, materiality HITL, exposure cap)
+    // (4) token/cost budget — contain runaway loops before they breach the ceiling
+    let budget: BudgetDecision | undefined;
+    if (this.budget) {
+      budget = this.budget.mediate({ tool: call.tool, operation: call.operation, tokens: call.tokens, costUsd: call.costUsd });
+      if (budget.outcome !== "permitted") {
+        return { permitted: false, intent: binding.intent, reasons: [`${budget.control}: ${budget.reason}`], guardrail, advisories, budget };
+      }
+    }
+
+    // (5) financial runtime controls (scope mandate, materiality HITL, exposure cap)
     if (this.finance && call.operation !== undefined) {
       const finance = this.finance.mediate(
         { tool: call.tool, operation: call.operation, amount: call.amount, riskProfileChange: call.riskProfileChange },
         { approved: ctx.approved },
       );
       if (finance.outcome !== "permitted") {
-        return { permitted: false, intent: binding.intent, reasons: [`${finance.control}: ${finance.reason}`], guardrail, advisories, finance };
+        return { permitted: false, intent: binding.intent, reasons: [`${finance.control}: ${finance.reason}`], guardrail, advisories, finance, budget };
       }
-      return { permitted: true, intent: binding.intent, reasons: ["permitted — within mandate, materiality, and exposure limits"], guardrail, advisories, finance };
+      return { permitted: true, intent: binding.intent, reasons: ["permitted — within mandate, materiality, and exposure limits"], guardrail, advisories, finance, budget };
     }
 
-    return { permitted: true, intent: binding.intent, reasons: ["permitted — bound tool, scopes granted, no deterministic guardrail hit"], guardrail, advisories };
+    return { permitted: true, intent: binding.intent, reasons: ["permitted — bound tool, scopes granted, no deterministic guardrail hit"], guardrail, advisories, budget };
   }
 }

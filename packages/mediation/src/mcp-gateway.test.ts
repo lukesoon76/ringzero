@@ -83,3 +83,23 @@ describe("MCP gateway with financial runtime controls wired in", () => {
     expect(d.finance).toBeUndefined();
   });
 });
+
+describe("MCP gateway with a token/cost budget wired in", () => {
+  const bgw = () =>
+    new RegentMcpGateway({
+      bindings: [{ tool: "expand", intent: "compute", requiredScopes: ["llm:call"] }],
+      grantedScopes: ["llm:call"],
+      budget: { tokenBudget: 100_000 },
+    });
+
+  it("contains a runaway loop when cumulative tokens would breach the budget (stateful)", () => {
+    const gw = bgw();
+    expect(gw.mediate({ server: "agent", tool: "expand", args: {}, tokens: 70_000 }).permitted).toBe(true);
+    const d = gw.mediate({ server: "agent", tool: "expand", args: {}, tokens: 40_000 }); // 110k > 100k
+    expect(d.permitted).toBe(false);
+    expect(d.budget?.outcome).toBe("contained");
+    expect(d.budget?.control).toBe("Token budget");
+    gw.resetSession();
+    expect(gw.mediate({ server: "agent", tool: "expand", args: {}, tokens: 40_000 }).permitted).toBe(true);
+  });
+});

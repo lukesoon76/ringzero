@@ -73,6 +73,7 @@ const awsBedrock: DiscoveryConnector = {
         { id: "c-fin-materiality", kind: "human-oversight", label: "Materiality human-in-the-loop", strength: "deterministic", satisfies: [{ framework: "mas-safr", clause: "materiality-gating" }] },
         { id: "c-fin-exposure", kind: "containment", label: "Cumulative session-exposure cap", strength: "deterministic", satisfies: [{ framework: "mas-safr", clause: "cumulative-exposure" }, { framework: "mas-safr", clause: "runtime-checkpoint" }, { framework: "frontier-ai-rmf", clause: "risk-mitigation" }, { framework: "gp-agent-l1-l5", clause: "high-autonomy-containment" }] },
         { id: "c-fin-replay", kind: "policy", label: "Forensic replay ledger", strength: "deterministic", satisfies: [{ framework: "mas-safr", clause: "forensic-replay" }] },
+        { id: "c-budget", kind: "containment", label: "Per-run token/cost budget (runaway-loop containment)", strength: "deterministic", satisfies: [{ framework: "frontier-ai-rmf", clause: "risk-thresholds" }] },
       ],
       humanOversight: [{ id: "og-approve", stage: "pre-release", authorisedRole: "risk-officer@bank", mode: "blocking" }],
       lastDiscoveredAt: SWEPT,

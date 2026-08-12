@@ -114,6 +114,7 @@ const NAV: Array<{ href: string; label: string; icon: keyof typeof ICONS }> = [
   { href: "/frameworks", label: "Frameworks", icon: "shield" },
   { href: "/compliance", label: "Compliance", icon: "scale" },
   { href: "/finance", label: "Financial", icon: "bank" },
+  { href: "/budget", label: "Budget", icon: "chart" },
   { href: "/policies", label: "Policies", icon: "policy" },
   { href: "/trust", label: "Trust Cards", icon: "award" },
   { href: "/attestation", label: "Reports", icon: "file" },
