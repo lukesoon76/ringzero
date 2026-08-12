@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
+import { usePermissions } from "./PermissionsProvider";
+import { requiredPermissionForPath } from "../lib/rbac";
 
 const ICONS: Record<string, ReactNode> = {
   grid: (
@@ -119,11 +121,18 @@ const NAV: Array<{ href: string; label: string; icon: keyof typeof ICONS }> = [
   { href: "/trust", label: "Trust Cards", icon: "award" },
   { href: "/attestation", label: "Reports", icon: "file" },
   { href: "/monitoring", label: "Monitoring", icon: "chart" },
+  { href: "/admin", label: "Admin", icon: "guard" },
 ];
 
 export function Sidebar() {
   const pathname = usePathname();
+  const perms = usePermissions();
   const isActive = (href: string) => (href === "/" ? pathname === "/" : pathname.startsWith(href));
+  // show only the nav items this role is permitted to view
+  const items = NAV.filter((item) => {
+    const need = requiredPermissionForPath(item.href);
+    return !need || !perms || perms.has(need);
+  });
 
   return (
     <aside className="sticky top-0 flex h-screen w-[224px] shrink-0 flex-col border-r border-edge bg-sidebar">
@@ -133,7 +142,7 @@ export function Sidebar() {
       </div>
       <div className="px-3 pb-2 text-[10px] uppercase tracking-wider text-muted">Governance</div>
       <nav className="flex flex-col gap-0.5 px-2">
-        {NAV.map((item) => {
+        {items.map((item) => {
           const active = isActive(item.href);
           return (
             <Link
@@ -161,10 +170,23 @@ export function Sidebar() {
           );
         })}
       </nav>
-      <div className="mt-auto px-5 py-4 text-[10px] leading-relaxed text-muted">
-        deterministic · LLM-free
-        <br />
-        fail-closed · replayable
+      <div className="mt-auto border-t border-edge px-3 py-3">
+        {perms ? (
+          <div className="mb-2 flex items-center justify-between gap-2 rounded-lg bg-panel px-2.5 py-2">
+            <div className="min-w-0">
+              <div className="truncate text-[12px] font-semibold text-fg">{perms.user.name}</div>
+              <div className="truncate text-[10px] text-muted">{perms.user.roleName}</div>
+            </div>
+            <button
+              onClick={() => { void fetch("/api/auth/logout", { method: "POST" }).then(() => (window.location.href = "/login")); }}
+              className="shrink-0 rounded-md border border-edge px-2 py-1 text-[10px] text-muted hover:text-fg"
+              title="Sign out"
+            >
+              Sign out
+            </button>
+          </div>
+        ) : null}
+        <div className="px-2 text-[10px] leading-relaxed text-muted">deterministic · LLM-free<br />fail-closed · replayable</div>
       </div>
     </aside>
   );
