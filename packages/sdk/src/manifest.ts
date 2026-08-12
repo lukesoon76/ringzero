@@ -88,6 +88,8 @@ export interface BoundControl {
   readonly label: string;
   readonly strength: "deterministic" | "advisory" | "detective";
   readonly satisfies: readonly FrameworkMapping[];
+  /** Specific capabilities this control provides (e.g. "budget-cap") — checked by autonomy conformance. */
+  readonly capabilities?: readonly string[];
 }
 
 /** A tool + its GRANT — inventory the blast radius, not just the tool (P7). */

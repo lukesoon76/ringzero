@@ -13,14 +13,18 @@ describe("L1–L5 autonomy framework", () => {
       const cur = AUTONOMY_LEVELS[i]!;
       expect(cur.minTier).toBeGreaterThanOrEqual(prev.minTier);
       expect(cur.requiredControls.length).toBeGreaterThanOrEqual(prev.requiredControls.length);
+      expect(cur.requiredCapabilities.length).toBeGreaterThanOrEqual(prev.requiredCapabilities.length);
       expect(cur.requiredRedLines.length).toBeGreaterThanOrEqual(prev.requiredRedLines.length);
     }
   });
 
-  it("requires containment + sign-off only once autonomy is high (L4+)", () => {
+  it("requires containment, sign-off, and a budget cap only once autonomy is high (L4+)", () => {
     expect(enforcementForAutonomy(3).requiredControls).not.toContain("containment");
     expect(enforcementForAutonomy(4).requiredControls).toContain("containment");
     expect(enforcementForAutonomy(4).requiredRedLines).toContain("RL-RELEASE-SIGNOFF");
+    expect(enforcementForAutonomy(3).requiredCapabilities).not.toContain("budget-cap");
+    expect(enforcementForAutonomy(4).requiredCapabilities).toContain("budget-cap");
+    expect(enforcementForAutonomy(5).requiredCapabilities).toContain("budget-cap");
     expect(enforcementForAutonomy(5).minTier).toBe(4);
   });
 });

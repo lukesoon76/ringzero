@@ -19,6 +19,8 @@
 
 export type AutonomyLevel = 1 | 2 | 3 | 4 | 5;
 type ControlKind = "guardrail" | "policy" | "verifier" | "human-oversight" | "containment";
+/** A specific bound capability a level can require (finer-grained than a control kind). */
+export type AutonomyCapability = "budget-cap";
 
 /* ------------------------------------------------------------------ */
 /* Red lines — named prohibitions, each mapped to a REAL mechanism.    */
@@ -95,6 +97,8 @@ export interface AutonomyDef {
   readonly minTier: 1 | 2 | 3 | 4;
   /** Deterministic control kinds that MUST be bound at this level. */
   readonly requiredControls: readonly ControlKind[];
+  /** Specific bound capabilities that MUST be present at this level (finer than a kind). */
+  readonly requiredCapabilities: readonly AutonomyCapability[];
   /** Red lines that must hold at this level (cumulative up the ladder). */
   readonly requiredRedLines: readonly RedLineId[];
 }
@@ -108,6 +112,7 @@ export const AUTONOMY_LEVELS: readonly AutonomyDef[] = [
     description: "Tool-augmented. No autonomous effect on the world.",
     minTier: 1,
     requiredControls: [],
+    requiredCapabilities: [],
     requiredRedLines: ["RL-ENUMERATED-ACTIONS"],
   },
   {
@@ -118,6 +123,7 @@ export const AUTONOMY_LEVELS: readonly AutonomyDef[] = [
     description: "The agent executes sub-tasks; each external effect is gated on a human decision.",
     minTier: 2,
     requiredControls: ["human-oversight"],
+    requiredCapabilities: [],
     requiredRedLines: ["RL-ENUMERATED-ACTIONS", "RL-DISPATCH-APPROVAL"],
   },
   {
@@ -128,6 +134,7 @@ export const AUTONOMY_LEVELS: readonly AutonomyDef[] = [
     description: "The agent runs end-to-end within scope; deterministic verification gates material outputs.",
     minTier: 3,
     requiredControls: ["verifier", "human-oversight"],
+    requiredCapabilities: [],
     requiredRedLines: ["RL-ENUMERATED-ACTIONS", "RL-DISPATCH-APPROVAL", "RL-FRESH-SOURCED-DATA", "RL-VERIFIED-FIGURES"],
   },
   {
@@ -138,6 +145,7 @@ export const AUTONOMY_LEVELS: readonly AutonomyDef[] = [
     description: "The agent acts autonomously in a bounded scope; containment and sign-off gate any release.",
     minTier: 4,
     requiredControls: ["verifier", "human-oversight", "containment"],
+    requiredCapabilities: ["budget-cap"],
     requiredRedLines: ["RL-ENUMERATED-ACTIONS", "RL-DISPATCH-APPROVAL", "RL-FRESH-SOURCED-DATA", "RL-VERIFIED-FIGURES", "RL-RELEASE-SIGNOFF"],
   },
   {
@@ -148,6 +156,7 @@ export const AUTONOMY_LEVELS: readonly AutonomyDef[] = [
     description: "Self-directing. Every red line must hold structurally, under least privilege, with mandatory sign-off for external effects.",
     minTier: 4,
     requiredControls: ["verifier", "human-oversight", "containment", "policy"],
+    requiredCapabilities: ["budget-cap"],
     requiredRedLines: ["RL-ENUMERATED-ACTIONS", "RL-DISPATCH-APPROVAL", "RL-FRESH-SOURCED-DATA", "RL-VERIFIED-FIGURES", "RL-RELEASE-SIGNOFF"],
   },
 ];

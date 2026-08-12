@@ -6,19 +6,23 @@ const agents = discoverAll();
 const by = Object.fromEntries(agents.map((a) => [a.id, a]));
 
 describe("agent autonomy conformance", () => {
-  it("the fully-governed L4 loan underwriter conforms (verifier + oversight + containment, deterministic)", () => {
+  it("the fully-governed L4 loan underwriter conforms (verifier + oversight + containment + budget-cap, deterministic)", () => {
     const r = checkAgentAutonomy(by["aws-bedrock:loan-underwriter"]!);
     expect(r.level).toBe(4);
     expect(r.conforms).toBe(true);
     expect(r.severity).toBe("ok");
+    // the budget cap is a required L4 capability and is met here
+    expect(r.controls.find((c) => c.kind === "budget-cap")?.met).toBe(true);
   });
 
-  it("a high-autonomy agent with only advisory/detective controls is CRITICAL (under-governed)", () => {
-    const sfdc = checkAgentAutonomy(by["sfdc:service-agent"]!); // L4, detective approval only
+  it("a high-autonomy agent with only advisory/detective controls is CRITICAL (under-governed, incl. missing budget cap)", () => {
+    const sfdc = checkAgentAutonomy(by["sfdc:service-agent"]!); // L4, detective approval only, no budget cap
     expect(sfdc.level).toBe(4);
     expect(sfdc.conforms).toBe(false);
     expect(sfdc.severity).toBe("critical");
     expect(sfdc.gaps.join(" ")).toMatch(/verifier|containment/);
+    expect(sfdc.gaps.join(" ")).toMatch(/budget-cap/);
+    expect(sfdc.controls.find((c) => c.kind === "budget-cap")?.met).toBe(false);
 
     const sap = checkAgentAutonomy(by["sap:procurement"]!); // L4, observe-only
     expect(sap.severity).toBe("critical");

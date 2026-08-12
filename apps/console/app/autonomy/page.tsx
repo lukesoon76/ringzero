@@ -31,6 +31,7 @@ interface LevelDef {
   description: string;
   minTier: number;
   requiredControls: string[];
+  requiredCapabilities: string[];
   requiredRedLines: string[];
 }
 interface RedLine {
@@ -153,7 +154,14 @@ export default function AutonomyPage() {
                 <p className="mt-0.5 text-[11px] leading-snug text-muted">{l.humanRole}</p>
                 <div className="mt-2 text-[10px] uppercase tracking-wide text-muted">Required controls</div>
                 <div className="mt-1 flex flex-wrap gap-1">
-                  {l.requiredControls.length === 0 ? <span className="text-[11px] text-muted">advisory ok</span> : l.requiredControls.map((c) => <span key={c} className={`${chip} bg-ink text-fg`}>{c}</span>)}
+                  {l.requiredControls.length === 0 && l.requiredCapabilities.length === 0 ? (
+                    <span className="text-[11px] text-muted">advisory ok</span>
+                  ) : (
+                    <>
+                      {l.requiredControls.map((c) => <span key={c} className={`${chip} bg-ink text-fg`}>{c}</span>)}
+                      {l.requiredCapabilities.map((c) => <span key={c} className={`${chip} bg-link/15 text-link`}>{c}</span>)}
+                    </>
+                  )}
                 </div>
                 <div className="mt-1.5 text-[10px] text-muted">{l.requiredRedLines.length} red lines enforced</div>
               </div>

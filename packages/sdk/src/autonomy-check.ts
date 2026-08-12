@@ -21,10 +21,9 @@ import {
 } from "@ring-zero/policy";
 import type { AgentManifest, BoundControl } from "./manifest.js";
 
-type ControlKind = BoundControl["kind"];
-
 export interface ControlCheck {
-  readonly kind: ControlKind;
+  /** A required control kind (e.g. "verifier") or capability (e.g. "budget-cap"). */
+  readonly kind: string;
   readonly met: boolean;
   readonly boundAs?: string;
 }
@@ -66,10 +65,17 @@ export function checkAgentAutonomy(agent: AgentManifest): AgentAutonomyResult {
     const bound = controls.find((c) => c.kind === kind && isDeterministic(c));
     return { kind, met: !!bound, boundAs: bound?.label };
   });
+  // required capabilities (finer than a kind, e.g. a budget cap at L4/L5) — shown as chips too
+  const capabilityChecks: ControlCheck[] = def.requiredCapabilities.map((cap) => {
+    const bound = controls.find((c) => isDeterministic(c) && (c.capabilities ?? []).includes(cap));
+    return { kind: cap, met: !!bound, boundAs: bound?.label };
+  });
+  const allChecks = [...controlChecks, ...capabilityChecks];
   const tierOk = tier !== null && tier >= def.minTier;
 
   const gaps: string[] = [];
   for (const c of controlChecks) if (!c.met) gaps.push(`No deterministic ${c.kind} control (required at ${def.code}).`);
+  for (const c of capabilityChecks) if (!c.met) gaps.push(`No ${c.kind} bound (required at ${def.code}).`);
   if (!tierOk) gaps.push(`Enforcement tier ${tier ?? "?"} is below the ${def.code} minimum (Tier ${def.minTier}).`);
 
   const conforms = gaps.length === 0;
@@ -77,7 +83,7 @@ export function checkAgentAutonomy(agent: AgentManifest): AgentAutonomyResult {
 
   return {
     agentId: agent.id, name: agent.name, source: agent.source, level, code: def.code,
-    tier, minTier: def.minTier, tierOk, controls: controlChecks,
+    tier, minTier: def.minTier, tierOk, controls: allChecks,
     requiredRedLines: def.requiredRedLines, conforms, gaps, severity,
   };
 }
