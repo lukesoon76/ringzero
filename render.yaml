@@ -2,14 +2,18 @@
 # Deploy: Render dashboard → New → Blueprint → connect the ringzero repo → Apply.
 #
 # The console reads governed-run evidence from .telemetry/demo.db + attestation.json,
-# which `pnpm demo` produces — so the build runs the demo BEFORE next build. The
-# SQLite DB is read-only demo data, regenerated on every deploy (no persistent
-# disk needed).
+# which `pnpm demo` produces — so the build runs the demo BEFORE next build. That
+# demo data is read-only and regenerated every deploy (ephemeral, no disk needed).
+#
+# The AUTH db (users, roles, permission grants) DOES need to survive redeploys, so
+# it lives on a persistent Render Disk (mounted at /var/data) via REGENT_AUTH_DB.
+# The session secret is a Render-managed generated value (stable across deploys,
+# not stored on disk), so existing sessions also survive a redeploy.
 services:
   - type: web
     name: regent-console
     runtime: node
-    plan: starter          # free/starter is fine for a demo; spins down when idle
+    plan: starter          # a persistent disk requires starter+ (not free) and a single instance
     branch: main
     autoDeploy: true
     buildCommand: >-
@@ -21,3 +25,11 @@ services:
     envVars:
       - key: NODE_VERSION
         value: "20.18.1"
+      - key: REGENT_AUTH_DB
+        value: /var/data/auth.db
+      - key: REGENT_SESSION_SECRET
+        generateValue: true   # Render generates once and persists it; keeps the secret off disk and out of source
+    disk:
+      name: regent-data
+      mountPath: /var/data
+      sizeGB: 1

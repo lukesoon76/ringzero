@@ -100,6 +100,10 @@ function seed(d: Database.Database): void {
 }
 
 export function getSessionSecret(): string {
+  // Prefer a platform-managed secret (Render generateValue) so it stays off disk
+  // and survives redeploys; fall back to the per-instance secret in the auth db.
+  const fromEnv = process.env.REGENT_SESSION_SECRET;
+  if (fromEnv && fromEnv.length >= 16) return fromEnv;
   return (db().prepare("SELECT value FROM meta WHERE key = 'session_secret'").get() as { value: string }).value;
 }
 
