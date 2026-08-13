@@ -1,5 +1,6 @@
 import { defaultApprovalVerifier, mintApproval } from "@ring-zero/kernel";
 import { NextResponse } from "next/server";
+import { getSession } from "../../../lib/auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -12,6 +13,11 @@ export const dynamic = "force-dynamic";
  * authenticated event a reviewer authorises.
  */
 export async function POST(req: Request): Promise<NextResponse> {
+  // action-gated: recording an oversight decision requires oversight:approve
+  const s = getSession();
+  if (!s || !s.permissions.includes("oversight:approve")) {
+    return NextResponse.json({ ok: false, error: "oversight:approve permission required" }, { status: 403 });
+  }
   let body: { action?: string; subjectNode?: string; approver?: string; id?: string };
   try {
     body = (await req.json()) as typeof body;

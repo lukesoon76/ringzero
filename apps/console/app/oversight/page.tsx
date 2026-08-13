@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { usePermissions } from "../../components/PermissionsProvider";
 
 type AgentStatus = "ok" | "contained" | "blocked" | "killed" | "skipped";
 interface AgentRun {
@@ -43,6 +44,8 @@ const STORE = "regent-oversight-decisions";
 const chip = "inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-semibold";
 
 export default function OversightPage() {
+  const perms = usePermissions();
+  const canApprove = !!perms?.has("oversight:approve");
   const [items, setItems] = useState<Item[]>([]);
   const [decisions, setDecisions] = useState<Record<string, Decision>>({});
   const [loading, setLoading] = useState(true);
@@ -145,10 +148,14 @@ export default function OversightPage() {
                   <span className="text-[11px] text-muted">{it.pipeline} · {it.scenario}</span>
                   <code className="text-[10px] text-muted">{it.subjectNode}</code>
                   {!d ? (
-                    <div className="ml-auto flex gap-2">
-                      <button onClick={() => decide(it, "approve")} className="rounded-lg bg-brand px-3 py-1 text-[11px] font-semibold text-ink">Approve</button>
-                      <button onClick={() => decide(it, "deny")} className="rounded-lg border border-edge px-3 py-1 text-[11px] text-muted hover:text-bad">Deny</button>
-                    </div>
+                    canApprove ? (
+                      <div className="ml-auto flex gap-2">
+                        <button onClick={() => decide(it, "approve")} className="rounded-lg bg-brand px-3 py-1 text-[11px] font-semibold text-ink">Approve</button>
+                        <button onClick={() => decide(it, "deny")} className="rounded-lg border border-edge px-3 py-1 text-[11px] text-muted hover:text-bad">Deny</button>
+                      </div>
+                    ) : (
+                      <span className="ml-auto text-[10px] italic text-muted" title="Requires the oversight:approve permission (Approver / Admin)">read-only — approval requires the Approver role</span>
+                    )
                   ) : (
                     <span className={`ml-auto ${chip} ${d.decision === "approved" ? "bg-ok/15 text-ok" : "bg-bad/15 text-bad"}`}>{d.decision.toUpperCase()}</span>
                   )}

@@ -1,6 +1,7 @@
 import { FRAMEWORK_LIBRARY } from "@ring-zero/policy";
 import { combineInventory, CONTROL_CATALOG, discoverAll, discoverModels, renderEstateMatrixHtml, toAttestation, toPortfolioCoverage } from "@ring-zero/sdk";
 import { NextResponse } from "next/server";
+import { getSession } from "../../../lib/auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -16,6 +17,11 @@ export function GET(req: Request): Response {
   // ?format=html → the portable, print-to-PDF estate attestation (auditor artifact).
   const url = new URL(req.url);
   if (url.searchParams.get("format") === "html") {
+    // action-gated: exporting the attestation artifact requires attest:export
+    const s = getSession();
+    if (!s || !s.permissions.includes("attest:export")) {
+      return new Response("Forbidden — attest:export permission required.", { status: 403 });
+    }
     const estateOnly = combineInventory(agents, discoverModels());
     // relative base keeps the artifact portable (no host-specific links in the PDF)
     const html = renderEstateMatrixHtml(estateOnly, { generatedAt: new Date().toISOString(), consoleBase: "/inventory" });

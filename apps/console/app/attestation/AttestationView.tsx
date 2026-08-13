@@ -1,6 +1,7 @@
 "use client";
 
 import { Fragment, useEffect, useState } from "react";
+import { usePermissions } from "../../components/PermissionsProvider";
 
 type ClauseStatus = "attested" | "advisory-only";
 interface ClauseCoverage {
@@ -209,6 +210,7 @@ export function AttestationView({ demoHtml }: { demoHtml: string | null }) {
 }
 
 function EstateSection({ estate, catalog }: { estate: Estate; catalog: CatalogCol[] }) {
+  const canExport = !!usePermissions()?.has("attest:export");
   // unique assets in first-seen order, carrying their class
   const assets: { id: string; name: string; cls: "agent" | "model" }[] = [];
   const seen = new Set<string>();
@@ -242,15 +244,19 @@ function EstateSection({ estate, catalog }: { estate: Estate; catalog: CatalogCo
       <div>
         <div className="flex items-start justify-between gap-3">
           <h2 className="text-sm font-semibold text-fg">Estate attestation — declared × exercised</h2>
-          <a
-            href="/api/attestation?format=html"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="shrink-0 rounded-lg border border-edge px-2.5 py-1 text-[11px] font-semibold text-fg hover:border-fg/40"
-            title="Open the portable, print-to-PDF estate attestation (auditor artifact)"
-          >
-            ⎙ Export estate (PDF)
-          </a>
+          {canExport ? (
+            <a
+              href="/api/attestation?format=html"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="shrink-0 rounded-lg border border-edge px-2.5 py-1 text-[11px] font-semibold text-fg hover:border-fg/40"
+              title="Open the portable, print-to-PDF estate attestation (auditor artifact)"
+            >
+              ⎙ Export estate (PDF)
+            </a>
+          ) : (
+            <span className="shrink-0 text-[10px] italic text-muted" title="Requires the attest:export permission">export restricted</span>
+          )}
         </div>
         <p className="max-w-3xl text-[12px] text-muted">
           Every AI asset (agents <span className="text-fg">and</span> models) against the control catalogue, fusing two
