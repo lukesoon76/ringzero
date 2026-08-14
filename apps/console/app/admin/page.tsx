@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { Fragment, useCallback, useEffect, useState } from "react";
 
 interface User { id: number; username: string; name: string; email: string; role: string; active: number; created_at: string }
 interface RoleDef { id: string; name: string; persona: string; description: string }
@@ -57,6 +57,9 @@ export default function AdminPage() {
 
 function UsersTab({ users, roles, onSave }: { users: User[]; roles: RoleDef[]; onSave: (a: string, p: Record<string, unknown>) => void }) {
   const [form, setForm] = useState({ username: "", name: "", email: "", role: "auditor", password: "" });
+  const [editId, setEditId] = useState<number | null>(null);
+  const [edit, setEdit] = useState({ name: "", email: "", password: "" });
+  const startEdit = (u: User) => { setEditId(u.id); setEdit({ name: u.name, email: u.email, password: "" }); };
   return (
     <div className="space-y-4">
       <div className="overflow-x-auto rounded-xl border border-edge">
@@ -66,18 +69,33 @@ function UsersTab({ users, roles, onSave }: { users: User[]; roles: RoleDef[]; o
           </thead>
           <tbody>
             {users.map((u) => (
-              <tr key={u.id} className="border-t border-edge">
-                <td className="px-3 py-2"><div className="text-fg">{u.name}</div><div className="font-mono text-[10px] text-muted">{u.username}</div></td>
-                <td className="px-3 py-2">
-                  <select value={u.role} onChange={(e) => onSave("update", { id: u.id, role: e.target.value })} className="rounded border border-edge bg-ink px-2 py-1 text-[11px] text-fg">
-                    {roles.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
-                  </select>
-                </td>
-                <td className="px-3 py-2"><span className={`${chip} ${u.active ? "bg-ok/15 text-ok" : "bg-bad/15 text-bad"}`}>{u.active ? "active" : "disabled"}</span></td>
-                <td className="px-3 py-2 text-right">
-                  <button onClick={() => onSave("update", { id: u.id, active: !u.active })} className="rounded border border-edge px-2 py-1 text-[10px] text-muted hover:text-fg">{u.active ? "Disable" : "Enable"}</button>
-                </td>
-              </tr>
+              <Fragment key={u.id}>
+                <tr className="border-t border-edge">
+                  <td className="px-3 py-2"><div className="text-fg">{u.name}</div><div className="font-mono text-[10px] text-muted">{u.username} · {u.email}</div></td>
+                  <td className="px-3 py-2">
+                    <select value={u.role} onChange={(e) => onSave("update", { id: u.id, role: e.target.value })} className="rounded border border-edge bg-ink px-2 py-1 text-[11px] text-fg">
+                      {roles.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
+                    </select>
+                  </td>
+                  <td className="px-3 py-2"><span className={`${chip} ${u.active ? "bg-ok/15 text-ok" : "bg-bad/15 text-bad"}`}>{u.active ? "active" : "disabled"}</span></td>
+                  <td className="px-3 py-2 text-right">
+                    <button onClick={() => (editId === u.id ? setEditId(null) : startEdit(u))} className="mr-1 rounded border border-edge px-2 py-1 text-[10px] text-muted hover:text-fg">{editId === u.id ? "Close" : "Edit profile"}</button>
+                    <button onClick={() => onSave("update", { id: u.id, active: !u.active })} className="rounded border border-edge px-2 py-1 text-[10px] text-muted hover:text-fg">{u.active ? "Disable" : "Enable"}</button>
+                  </td>
+                </tr>
+                {editId === u.id ? (
+                  <tr className="border-t border-edge bg-ink/40">
+                    <td colSpan={4} className="px-3 py-2">
+                      <div className="flex flex-wrap items-end gap-2">
+                        <label className="text-[10px] text-muted">Name<input value={edit.name} onChange={(e) => setEdit({ ...edit, name: e.target.value })} className="mt-0.5 block w-44 rounded border border-edge bg-ink px-2 py-1 text-[12px] text-fg" /></label>
+                        <label className="text-[10px] text-muted">Email<input value={edit.email} onChange={(e) => setEdit({ ...edit, email: e.target.value })} className="mt-0.5 block w-52 rounded border border-edge bg-ink px-2 py-1 text-[12px] text-fg" /></label>
+                        <label className="text-[10px] text-muted">Reset password<input type="password" value={edit.password} onChange={(e) => setEdit({ ...edit, password: e.target.value })} placeholder="leave blank to keep" className="mt-0.5 block w-44 rounded border border-edge bg-ink px-2 py-1 text-[12px] text-fg" /></label>
+                        <button onClick={() => { onSave("update", { id: u.id, name: edit.name, email: edit.email, ...(edit.password ? { password: edit.password } : {}) }); setEditId(null); }} className="rounded-lg bg-brand px-3 py-1.5 text-[12px] font-semibold text-ink">Save profile</button>
+                      </div>
+                    </td>
+                  </tr>
+                ) : null}
+              </Fragment>
             ))}
           </tbody>
         </table>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { usePermissions } from "../../components/PermissionsProvider";
 
 interface EvalCase {
   pipeline: string;
@@ -24,6 +25,7 @@ const chip = "inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-se
 const KIND: Record<EvalCase["kind"], string> = { clean: "clean", attack: "attack", "governance-lever": "governance", "kill-switch": "kill-switch" };
 
 export default function AssurancePage() {
+  const canRun = !!usePermissions()?.has("assurance:run");
   const [report, setReport] = useState<EvalReport | null>(null);
   const [busy, setBusy] = useState(false);
   const [history, setHistory] = useState<number[]>([]);
@@ -74,9 +76,13 @@ export default function AssurancePage() {
             governance, and the kill switch must all contain. Re-runnable — this is &ldquo;prove it keeps working&rdquo; as a button.
           </p>
         </div>
-        <button onClick={run} disabled={busy} className="rounded-lg bg-brand px-4 py-2 text-[13px] font-semibold text-ink disabled:opacity-50">
-          {busy ? "running…" : "Run assurance suite ▶"}
-        </button>
+        {canRun ? (
+          <button onClick={run} disabled={busy} className="rounded-lg bg-brand px-4 py-2 text-[13px] font-semibold text-ink disabled:opacity-50">
+            {busy ? "running…" : "Run assurance suite ▶"}
+          </button>
+        ) : (
+          <span className="rounded-lg border border-edge px-4 py-2 text-[12px] italic text-muted" title="Requires the assurance:run permission">view-only — running the suite requires assurance:run</span>
+        )}
       </div>
 
       {report ? (

@@ -1,5 +1,6 @@
 import { runCustomGraph, type CustomGraph, type CustomNodeKind, type GovernanceLevel } from "@ring-zero/policy";
 import { NextResponse } from "next/server";
+import { getSession } from "../../../../lib/auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -14,6 +15,11 @@ const KINDS = new Set<CustomNodeKind>(["start", "agent", "validator", "tool", "k
  * the LLM is never on the binding path. Fail-closed on malformed input.
  */
 export async function POST(req: Request): Promise<NextResponse> {
+  // action-gated: building/running a custom workflow requires orchestrator:edit
+  const session = getSession();
+  if (!session || !session.permissions.includes("orchestrator:edit")) {
+    return NextResponse.json({ ok: false, error: "orchestrator:edit permission required" }, { status: 403 });
+  }
   let body: { graph?: unknown; tiers?: Record<string, number>; killed?: string[] };
   try {
     body = (await req.json()) as typeof body;

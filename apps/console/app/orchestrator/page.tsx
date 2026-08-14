@@ -20,6 +20,7 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from "react";
+import { usePermissions } from "../../components/PermissionsProvider";
 
 /* ---- types mirroring @ring-zero/policy orchestration output ---- */
 interface GuardEval {
@@ -321,6 +322,9 @@ function GovernanceDial({ tier, disabled, onPick }: { tier: number; disabled: bo
 
 function AgentFlowNode({ data, selected }: NodeProps<Node<AgentNodeData>>) {
   const { agent, killed, onTier, onKill, onSelect, readOnly } = data;
+  const perms = usePermissions();
+  const canKill = !!perms?.has("agent:kill");
+  const canEdit = !!perms?.has("orchestrator:edit");
   const s = STATUS[agent.status];
   return (
     <div
@@ -340,7 +344,7 @@ function AgentFlowNode({ data, selected }: NodeProps<Node<AgentNodeData>>) {
         <span className="min-w-0 flex-1 truncate text-[12.5px] font-semibold text-fg">{agent.name}</span>
         {readOnly ? (
           <span className={`${chip} bg-ink text-muted`}>imported</span>
-        ) : (
+        ) : canKill ? (
           <button
             onClick={(e) => {
               e.stopPropagation();
@@ -353,7 +357,7 @@ function AgentFlowNode({ data, selected }: NodeProps<Node<AgentNodeData>>) {
           >
             {killed ? "revive" : "⨯ kill"}
           </button>
-        )}
+        ) : null}
       </div>
 
       <div className="space-y-2 px-3 py-2.5">
@@ -365,7 +369,7 @@ function AgentFlowNode({ data, selected }: NodeProps<Node<AgentNodeData>>) {
 
         <div className="flex items-center justify-between gap-2 rounded-md bg-ink/60 px-2 py-1.5">
           <span className="text-[9px] font-semibold uppercase tracking-wide text-muted">Governance</span>
-          {readOnly ? <span className="text-[10px] text-muted">Tier {agent.tier} · read-only</span> : <GovernanceDial tier={agent.tier} disabled={killed} onPick={(t) => onTier(agent.id, t)} />}
+          {readOnly || !canEdit ? <span className="text-[10px] text-muted">Tier {agent.tier} · read-only</span> : <GovernanceDial tier={agent.tier} disabled={killed} onPick={(t) => onTier(agent.id, t)} />}
         </div>
         <div className="flex flex-wrap gap-1 text-muted">
           <span className={`${chip} bg-ink`}>θ_A {agent.theta.alignment}</span>
@@ -448,6 +452,7 @@ interface BuildNodeData extends Record<string, unknown> {
 }
 function BuildNode({ id, data, selected }: NodeProps<Node<BuildNodeData>>) {
   const cat = CATALOG_BY_KIND[data.kind];
+  const canEdit = !!usePermissions()?.has("orchestrator:edit");
   const terminal = data.kind === "start" || data.kind === "end";
   return (
     <div
@@ -483,7 +488,7 @@ function BuildNode({ id, data, selected }: NodeProps<Node<BuildNodeData>>) {
           {cat.tierable ? (
             <div className="flex items-center justify-between gap-2 rounded-md bg-ink/60 px-2 py-1">
               <span className="text-[9px] font-semibold uppercase tracking-wide text-muted">Tier</span>
-              <GovernanceDial tier={data.tier} disabled={false} onPick={(t) => data.onTier(id, t)} />
+              <GovernanceDial tier={data.tier} disabled={!canEdit} onPick={(t) => data.onTier(id, t)} />
             </div>
           ) : null}
           {data.planned ? (
@@ -925,6 +930,8 @@ function OrchestratorInner() {
  * ========================================================================== */
 function Palette({ building }: { building: boolean }) {
   const groups: CatalogEntry["group"][] = ["Flow", "Capability", "Governance"];
+  const canEdit = !!usePermissions()?.has("orchestrator:edit");
+  const editable = building && canEdit;
   const onDragStart = (e: DragEvent, kind: NodeKind) => {
     e.dataTransfer.setData("application/regent-node", kind);
     e.dataTransfer.effectAllowed = "move";
@@ -934,7 +941,7 @@ function Palette({ building }: { building: boolean }) {
       <div className="border-b border-edge px-3 py-2.5">
         <h2 className="text-[12px] font-semibold text-fg">Node library</h2>
         <p className="mt-0.5 text-[10px] leading-snug text-muted">
-          {building ? "Drag a node onto the canvas." : "Switch to “＋ Build your own” to compose."}
+          {!canEdit ? "View-only — building requires orchestrator:edit." : building ? "Drag a node onto the canvas." : "Switch to “＋ Build your own” to compose."}
         </p>
       </div>
       <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-2.5 py-3">
@@ -945,7 +952,7 @@ function Palette({ building }: { building: boolean }) {
               {NODE_CATALOG.filter((c) => c.group === g).map((c) => (
                 <div
                   key={c.kind}
-                  draggable={building}
+                  draggable={editable}
                   onDragStart={(e) => onDragStart(e, c.kind)}
                   title={c.blurb}
                   className={`group rounded-lg border border-edge bg-panel2 px-2 py-1.5 transition ${
@@ -1002,6 +1009,7 @@ function StudioBar({
   onGovern: () => void;
   onEdit: () => void;
 }) {
+  const canEdit = !!usePermissions()?.has("orchestrator:edit");
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-edge bg-panel px-3 py-2">
       <div className="flex items-center gap-2">
@@ -1030,7 +1038,7 @@ function StudioBar({
             ✎ Edit
           </button>
         ) : building ? (
-          <button onClick={onGovern} disabled={customBusy} className="rounded-lg bg-brand px-3 py-1.5 text-[12px] font-semibold text-ink hover:opacity-90 disabled:opacity-50" title="Compile the built workflow and run it through the kernel">
+          <button onClick={onGovern} disabled={customBusy || !canEdit} className="rounded-lg bg-brand px-3 py-1.5 text-[12px] font-semibold text-ink hover:opacity-90 disabled:opacity-50" title={canEdit ? "Compile the built workflow and run it through the kernel" : "Requires orchestrator:edit"}>
             {customBusy ? "Running…" : "Govern ▶"}
           </button>
         ) : (

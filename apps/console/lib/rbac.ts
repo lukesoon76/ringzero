@@ -17,7 +17,7 @@ export const ALL_VIEWS = [
 ] as const;
 
 /** Sensitive action capabilities (finer than a view). */
-export const ACTIONS = ["attest:export", "oversight:approve", "admin"] as const;
+export const ACTIONS = ["attest:export", "oversight:approve", "orchestrator:edit", "agent:kill", "assurance:run", "admin"] as const;
 
 export const ALL_PERMISSIONS: readonly Permission[] = [...ALL_VIEWS, ...ACTIONS];
 
@@ -43,10 +43,10 @@ const OVERVIEW: Permission[] = ["view:dashboard", "view:coverage", "view:trust",
 /** Default capability bundle per role (admin-overridable at runtime). */
 export const DEFAULT_ROLE_PERMISSIONS: Record<RoleId, Permission[]> = {
   admin: [...ALL_VIEWS, ...ACTIONS],
-  "gov-lead": [...ALL_VIEWS, "attest:export"],
+  "gov-lead": [...ALL_VIEWS, "attest:export", "orchestrator:edit", "agent:kill", "assurance:run"],
   "model-risk": [...OVERVIEW, "view:inventory", "view:discovery", "view:autonomy", "view:compliance", "view:frameworks", "view:attestation", "view:trace", "view:assurance", "attest:export"],
   approver: ["view:dashboard", "view:trace", "view:oversight", "oversight:approve"],
-  engineer: ["view:dashboard", "view:coverage", "view:inventory", "view:discovery", "view:autonomy", "view:orchestrator", "view:import", "view:guardrails", "view:budget", "view:finance", "view:policies", "view:assurance", "view:trace"],
+  engineer: ["view:dashboard", "view:coverage", "view:inventory", "view:discovery", "view:autonomy", "view:orchestrator", "view:import", "view:guardrails", "view:budget", "view:finance", "view:policies", "view:assurance", "view:trace", "orchestrator:edit", "agent:kill", "assurance:run"],
   auditor: [...OVERVIEW, "view:inventory", "view:autonomy", "view:compliance", "view:frameworks", "view:attestation", "view:trace", "view:assurance", "attest:export"],
   exec: [...OVERVIEW],
 };
