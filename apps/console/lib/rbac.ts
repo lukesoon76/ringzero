@@ -59,7 +59,7 @@ const ROUTE_PERMISSION: Record<string, Permission> = {
   "/orchestrator": "view:orchestrator", "/workbench": "view:import", "/guardrails": "view:guardrails",
   "/oversight": "view:oversight", "/finance": "view:finance", "/budget": "view:budget",
   "/policies": "view:policies", "/trust": "view:trust", "/monitoring": "view:monitoring",
-  "/registry": "view:inventory", "/admin": "admin",
+  "/registry": "view:inventory", "/network": "view:inventory", "/admin": "admin",
 };
 
 /** The permission required to view a path (longest-prefix), or null if unguarded. */
