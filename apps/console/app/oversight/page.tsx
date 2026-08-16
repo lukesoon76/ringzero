@@ -43,12 +43,21 @@ interface Decision {
 const STORE = "regent-oversight-decisions";
 const chip = "inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-semibold";
 
+interface OversightModeDef {
+  id: string; code: string; name: string; humanRole: string; description: string;
+  latency: string; enforcement: string; euAiActArt14: string; autonomyLevels: number[];
+}
+interface ModeAgent { id: string; name: string; source: string; autonomy: string; level: number | null; severity: string; mode: string | null }
+interface ModesData { modes: OversightModeDef[]; agents: ModeAgent[] }
+
 export default function OversightPage() {
   const perms = usePermissions();
   const canApprove = !!perms?.has("oversight:approve");
   const [items, setItems] = useState<Item[]>([]);
   const [decisions, setDecisions] = useState<Record<string, Decision>>({});
   const [loading, setLoading] = useState(true);
+  const [modes, setModes] = useState<ModesData | null>(null);
+  useEffect(() => { void (async () => setModes((await (await fetch("/api/oversight-modes")).json()) as ModesData))(); }, []);
 
   useEffect(() => {
     try {
@@ -134,6 +143,8 @@ export default function OversightPage() {
         <span className={`${chip} bg-bad/15 text-bad`}>{decided.filter((i) => decisions[i.key]?.decision === "denied").length} denied</span>
       </div>
 
+      {modes ? <OversightModes data={modes} /> : null}
+
       {loading ? (
         <p className="text-[13px] text-muted">Collecting escalations from governed runs…</p>
       ) : (
@@ -175,6 +186,65 @@ export default function OversightPage() {
           {items.length === 0 ? <p className="text-[13px] text-muted">No escalations — all governed runs completed cleanly.</p> : null}
         </div>
       )}
+    </div>
+  );
+}
+
+const MODE_TONE: Record<string, string> = { hitl: "bg-ok/15 text-ok", hotl: "bg-warn/15 text-warn", hic: "bg-link/15 text-link", autonomous: "bg-bad/15 text-bad" };
+
+function OversightModes({ data }: { data: ModesData }) {
+  const [sel, setSel] = useState<string>("hitl");
+  const active = data.modes.find((m) => m.id === sel) ?? data.modes[0]!;
+  const inMode = data.agents.filter((a) => a.mode === active.id);
+  return (
+    <div className="space-y-3 rounded-xl border border-edge bg-panel p-4">
+      <div>
+        <h2 className="text-sm font-semibold text-fg">Human oversight modes — the spectrum</h2>
+        <p className="max-w-3xl text-[12px] text-muted">
+          As an agent&rsquo;s autonomy rises, the human moves from <span className="text-fg">in</span> the loop (approve each action)
+          to <span className="text-fg">on</span> it (supervise &amp; intervene) to <span className="text-fg">in command</span>
+          {" "}(policy + post-hoc). Each mode is backed by real kernel enforcement, not an SLA. Click a mode to see how Regent binds it.
+        </p>
+      </div>
+      <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+        {data.modes.map((m) => {
+          const n = data.agents.filter((a) => a.mode === m.id).length;
+          return (
+            <button key={m.id} onClick={() => setSel(m.id)} className={`rounded-lg border p-2.5 text-left transition ${sel === m.id ? "border-fg" : "border-edge hover:border-fg/40"}`}>
+              <div className="flex items-center justify-between">
+                <span className={`${chip} ${MODE_TONE[m.id]}`}>{m.code}</span>
+                <span className="text-[11px] text-muted">{n} agent{n === 1 ? "" : "s"}</span>
+              </div>
+              <div className="mt-1 text-[12px] font-semibold text-fg">{m.name}</div>
+              <div className="mt-0.5 text-[10px] leading-snug text-muted">{m.humanRole}</div>
+            </button>
+          );
+        })}
+      </div>
+      <div className="grid grid-cols-1 gap-3 rounded-lg border border-edge bg-ink/40 p-3 md:grid-cols-2">
+        <div className="space-y-1.5 text-[12px]">
+          <div><span className={`${chip} ${MODE_TONE[active.id]}`}>{active.code}</span> <span className="text-fg">{active.name}</span> <span className="text-muted">· human acts {active.latency}</span></div>
+          <p className="text-[11px] leading-snug text-muted">{active.description}</p>
+          <div className="pt-1 text-[10px] uppercase tracking-wide text-muted">Regent enforces</div>
+          <p className="text-[11px] leading-snug text-fg">{active.enforcement}</p>
+          <div className="pt-1 text-[10px] uppercase tracking-wide text-muted">EU AI Act Art. 14</div>
+          <p className="text-[11px] leading-snug text-muted">{active.euAiActArt14}</p>
+        </div>
+        <div>
+          <div className="mb-1 text-[10px] uppercase tracking-wide text-muted">Agents in this mode (autonomy {active.autonomyLevels.map((l) => `L${l}`).join("/")}) — {inMode.length}</div>
+          {inMode.length === 0 ? <p className="text-[11px] text-muted">No discovered agents currently map to {active.code}.</p> : (
+            <ul className="space-y-1">
+              {inMode.map((a) => (
+                <li key={a.id} className="flex items-center gap-2 text-[11.5px]">
+                  <span className={`${chip} ${a.severity === "critical" ? "bg-bad/15 text-bad" : a.severity === "watch" ? "bg-warn/15 text-warn" : "bg-ok/15 text-ok"}`}>{a.autonomy}</span>
+                  <span className="text-fg">{a.name}</span>
+                  <span className="font-mono text-[10px] text-muted">{a.source}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
