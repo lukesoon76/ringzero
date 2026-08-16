@@ -10,6 +10,7 @@ from typing import Any
 
 from .checks import CheckResult
 from .contradiction import contradiction_check
+from .grounding import grounding_check
 from .numeric import inequality_check, numeric_check
 from .register import register_check
 
@@ -36,6 +37,8 @@ def _run_check(check: dict[str, Any], register: dict[str, float]) -> CheckResult
         return register_check(label, str(check["key"]), float(check["expected"]), float(check["tolerance"]), register)
     if kind == "contradiction":
         return contradiction_check(label, check["claim"], list(check["facts"]))
+    if kind == "grounding":
+        return grounding_check(label, list(check.get("cited", [])), list(check.get("allowed", [])))
     if kind == "assert":
         ok = bool(check.get("ok", False))
         return CheckResult(ok=ok, confidence=0.9 if ok else 0.2, detail=f"assertion {label}: {ok}")

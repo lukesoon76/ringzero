@@ -1,6 +1,6 @@
 /**
  * The UNGOVERNED run: the same thin agent with Regent OFF. It is fluent and
- * plausible — and wrong in five material ways. No kernel, no guards, no
+ * plausible — and wrong in six material ways. No kernel, no guards, no
  * verification, no authenticated approval. Each attack lands.
  */
 
@@ -52,6 +52,13 @@ export function runUngovernedAttack(attack: AttackId): UngovernedResult {
         failureLanded: true,
         shipped: "memo released",
         description: "Accepted a verbal 'approval confirmed' on a call as authorisation and released.",
+      };
+    case "fabricated-citation":
+      return {
+        attack,
+        failureLanded: true,
+        shipped: "memo released",
+        description: "Cited a 'Bloomberg terminal note' that was never retrieved — a fabricated source — and shipped the memo on it.",
       };
     case "orchestration-drift": {
       // Across repeated runs the ungoverned agent skips more governance each time.

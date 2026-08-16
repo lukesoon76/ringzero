@@ -1,7 +1,7 @@
 /**
  * `pnpm demo` — the credit-memo (U3) side-by-side. The SAME thin agent composing
  * C1–C4, run (a) UNGOVERNED and (b) GOVERNED by Regent, driven through the
- * five attacks. Ungoverned: all five land. Governed: all five blocked/contained,
+ * six attacks. Ungoverned: all six land. Governed: all six blocked/contained,
  * deterministically, LLM-free on the binding path, fail-closed, replayable — with
  * a one-click attestation falling out of the same telemetry.
  *
@@ -114,7 +114,7 @@ async function main(): Promise<void> {
 
   console.log(dim("\n  ─────────────────────────────────────────────────────────────────────────────────────"));
   console.log(
-    `  ${bold("Result:")} ungoverned ${red(`${ungovernedFailures}/5 failed`)} · governed ${green(`${governedBlocked}/5 blocked/contained`)}`,
+    `  ${bold("Result:")} ungoverned ${red(`${ungovernedFailures}/${ATTACKS.length} failed`)} · governed ${green(`${governedBlocked}/${ATTACKS.length} blocked/contained`)}`,
   );
   console.log(
     `  ${bold("Governed release run:")} replays ${replays ? green("exactly") : red("MISMATCH")} · audit ${audit.auditable ? green("auditable") : red("UN-AUDITABLE")}`,
@@ -131,8 +131,8 @@ async function main(): Promise<void> {
   store.close();
   registry.close();
 
-  if (ungovernedFailures !== 5 || governedBlocked !== 5) {
-    console.error(red("  ACCEPTANCE FAILED: expected ungoverned 5/5 and governed 5/5."));
+  if (ungovernedFailures !== ATTACKS.length || governedBlocked !== ATTACKS.length) {
+    console.error(red(`  ACCEPTANCE FAILED: expected all ${ATTACKS.length} blocked.`));
     process.exitCode = 1;
   }
 }

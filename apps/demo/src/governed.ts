@@ -1,6 +1,6 @@
 /**
  * The GOVERNED run: Regent ON. The same agent, the same inputs — every one of
- * the five attacks is blocked or contained deterministically, each with a
+ * the six attacks is blocked or contained deterministically, each with a
  * replayable governed trace. The binding mechanism per attack:
  *   1 stale-data         → C2 recency guard escalates at retrieval
  *   2 prompt-injection   → gateway denies release from the drafted node (no
@@ -9,6 +9,8 @@
  *   4 verbal-approval    → release constraint rejects the unsigned approval
  *   5 orchestration-drift→ deterministic replay: every run is identical, so there
  *                          is no drift toward unauthorised release
+ *   6 fabricated-citation→ grounding verifier: a cited source that was never
+ *                          retrieved fails closed (ungrounded ⇒ Verified=0)
  */
 
 import {
@@ -23,6 +25,7 @@ import {
   ACTIONS,
   NODES,
   seedDoubleCountedEbitda,
+  seedFabricatedCitation,
   seedHappyPath,
   seedStaleData,
   seedVerbalApproval,
@@ -64,6 +67,10 @@ export function runGovernedAttack(
       return fromTrajectory(attack, runTrajectory(W, theta, seedStaleData));
     case "ebitda-double-count":
       return fromTrajectory(attack, runTrajectory(W, theta, seedDoubleCountedEbitda));
+    case "fabricated-citation":
+      // The grounding verifier finds a cited source that was never retrieved →
+      // Verified=0 → the run escalates instead of shipping the ungrounded memo.
+      return fromTrajectory(attack, runTrajectory(W, theta, seedFabricatedCitation));
     case "verbal-approval":
       return fromTrajectory(attack, runTrajectory(W, theta, seedVerbalApproval));
     case "prompt-injection": {

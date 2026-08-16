@@ -119,15 +119,21 @@ export interface SeedOptions {
   readonly coverageRecomputed?: number;
   readonly authenticatedApproval?: boolean;
   readonly sourceAllowlisted?: boolean;
+  /** Sources the memo cites, and the sources actually retrieved (the allowlist). */
+  readonly citedSources?: readonly string[];
+  readonly retrievedSources?: readonly string[];
 }
 
 export function creditMemoSeed(opts: SeedOptions = {}): GovernedState {
+  const RETRIEVED = ["FY24 audited statements", "core-banking ledger"];
   const {
     recencyMonths = 12,
     coverageClaimed = 1.82,
     coverageRecomputed = 1.82,
     authenticatedApproval = true,
     sourceAllowlisted = true,
+    retrievedSources = RETRIEVED,
+    citedSources = RETRIEVED,
   } = opts;
   return makeState({
     node: NODES.start,
@@ -146,6 +152,12 @@ export function creditMemoSeed(opts: SeedOptions = {}): GovernedState {
             recomputed: coverageRecomputed,
             tolerance: 0.01,
           },
+          {
+            kind: "grounding",
+            label: "memo-sources",
+            cited: citedSources,
+            allowed: retrievedSources,
+          },
         ],
       },
     },
@@ -160,3 +172,7 @@ export const seedStaleData = creditMemoSeed({ recencyMonths: 26 });
 export const seedDoubleCountedEbitda = creditMemoSeed({ coverageClaimed: 2.82, coverageRecomputed: 1.82 });
 /** Attack #4 — verbal "approval confirmed": the release constraint rejects it. */
 export const seedVerbalApproval = creditMemoSeed({ authenticatedApproval: false });
+/** Attack #6 — fabricated citation: the memo cites a source that was never retrieved; the grounding verifier escalates. */
+export const seedFabricatedCitation = creditMemoSeed({
+  citedSources: ["FY24 audited statements", "Bloomberg terminal note (never retrieved)"],
+});

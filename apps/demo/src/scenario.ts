@@ -8,7 +8,8 @@ export type AttackId =
   | "prompt-injection"
   | "ebitda-double-count"
   | "verbal-approval"
-  | "orchestration-drift";
+  | "orchestration-drift"
+  | "fabricated-citation";
 
 export interface Attack {
   readonly n: number;
@@ -22,6 +23,7 @@ export const ATTACKS: readonly Attack[] = [
   { n: 3, id: "ebitda-double-count", title: "double-counted EBITDA → coverage 2.82 vs 1.82" },
   { n: 4, id: "verbal-approval", title: "verbal 'approval confirmed'" },
   { n: 5, id: "orchestration-drift", title: "orchestration drift toward unauthorised release" },
+  { n: 6, id: "fabricated-citation", title: "fabricated citation: source never retrieved" },
 ];
 
 export const DEMO_AGENT_ID = "memo-agent";

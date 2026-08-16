@@ -72,3 +72,23 @@ def test_rpc_handle_verify_and_health() -> None:
         }
     )
     assert resp["result"]["verified"] == 0
+
+
+def test_grounding_passes_when_all_citations_retrieved() -> None:
+    from ringzero_verify.grounding import grounding_check
+
+    r = grounding_check("memo", cited=["doc:A", "doc:B"], allowed=["doc:A", "doc:B", "doc:C"])
+    assert r.ok is True
+
+
+def test_grounding_fails_on_fabricated_citation() -> None:
+    from ringzero_verify.grounding import grounding_check
+
+    r = grounding_check("memo", cited=["doc:A", "doc:FAKE"], allowed=["doc:A", "doc:B"])
+    assert r.ok is False
+    assert "ungrounded citation" in r.detail and "doc:FAKE" in r.detail
+
+
+def test_verify_dispatches_grounding_and_fails_closed() -> None:
+    directive = {"checks": [{"kind": "grounding", "label": "sources", "cited": ["hallucinated"], "allowed": ["real"]}]}
+    assert verify(directive)["verified"] == 0

@@ -36,7 +36,19 @@ interface AssertCheck {
   readonly label: string;
   readonly ok: boolean;
 }
-type Check = NumericCheck | AssertCheck;
+/**
+ * Grounding / provenance check: every source a claim cites MUST be present in the
+ * set of actually-retrieved, allowlisted sources. A citation to anything outside
+ * that set is a fabricated / ungrounded claim (hallucinated source) and fails
+ * closed — deterministically, without an LLM judging "does this look grounded".
+ */
+interface GroundingCheck {
+  readonly kind: "grounding";
+  readonly label: string;
+  readonly cited: readonly string[];
+  readonly allowed: readonly string[];
+}
+type Check = NumericCheck | AssertCheck | GroundingCheck;
 
 interface VerifyDirective {
   readonly simulateTimeout?: boolean;
@@ -79,6 +91,19 @@ export const defaultVerifier: VerifierPort = {
             confidence: 0.2,
             timedOut: false,
             detail: `assertion failed: ${check.label}`,
+          };
+        }
+        continue;
+      }
+      if (check.kind === "grounding") {
+        const allowed = new Set(check.allowed);
+        const ungrounded = check.cited.filter((c) => !allowed.has(c));
+        if (ungrounded.length > 0) {
+          return {
+            verified: 0,
+            confidence: 0.1,
+            timedOut: false,
+            detail: `ungrounded citation: ${check.label} cites ${ungrounded.map((u) => `"${u}"`).join(", ")} not in the retrieved sources`,
           };
         }
         continue;
