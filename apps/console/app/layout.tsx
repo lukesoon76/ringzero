@@ -18,6 +18,12 @@ export const metadata: Metadata = {
   description: "Deterministic execution-governance kernel for AI agents",
 };
 
+// The layout authenticates per-request (cookies/headers), so NOTHING may be
+// statically prerendered — otherwise a build-time render (no session) bakes a
+// redirect-to-/login into a "static" page and a logged-in user hits a redirect
+// loop. Force every route dynamic.
+export const dynamic = "force-dynamic";
+
 export default function RootLayout({ children }: { children: ReactNode }) {
   const pathname = headers().get("x-pathname") ?? "/";
   const shell = pathname !== "/login";

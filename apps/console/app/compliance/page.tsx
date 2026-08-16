@@ -2,7 +2,9 @@ import { FRAMEWORK_LIBRARY } from "@ring-zero/policy";
 import { ComplianceModule } from "./ComplianceModule";
 import type { Pack } from "../../lib/frameworks-store";
 
-export const dynamic = "force-static";
+// Dynamic (not force-static): the auth layout runs per-request; static prerender
+// would bake a /login redirect and loop for logged-in users.
+export const dynamic = "force-dynamic";
 
 export default function CompliancePage() {
   const builtins: Pack[] = FRAMEWORK_LIBRARY.map((f) => ({
