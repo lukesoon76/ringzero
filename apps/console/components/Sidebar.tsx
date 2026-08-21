@@ -106,6 +106,7 @@ const NAV: Array<{ href: string; label: string; icon: keyof typeof ICONS }> = [
   { href: "/coverage", label: "Pillars", icon: "shield" },
   { href: "/workbench", label: "Import", icon: "flask" },
   { href: "/orchestrator", label: "Orchestrator", icon: "graph" },
+  { href: "/cognition", label: "Cognition", icon: "pulse" },
   { href: "/guardrails", label: "Guardrails", icon: "guard" },
   { href: "/oversight", label: "Oversight", icon: "inbox" },
   { href: "/assurance", label: "Assurance", icon: "target" },
